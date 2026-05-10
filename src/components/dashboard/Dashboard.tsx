@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { CountdownCard } from './CountdownCard'
 import { LastMedCard } from './LastMedCard'
 import { UpcomingAppointmentsStrip } from './UpcomingAppointmentsStrip'
+import { FourHourlySummary } from './FourHourlySummary'
 import { StatsBar } from './StatsBar'
 import { Timeline } from './Timeline'
 import { ActionBar, type LogType } from '../layout/ActionBar'
@@ -17,10 +18,10 @@ import { useAuth } from '../../hooks/useAuth'
 import { can } from '../../lib/permissions'
 import { getTodayEntries, getDailyStats } from '../../lib/db'
 import { format } from 'date-fns'
-import { LogOut, LayoutList, BarChart2, Settings, CalendarDays } from 'lucide-react'
-import type { LogEntry, DailyStats } from '../../types'
+import { LogOut, LayoutList, BarChart2, Settings, CalendarDays, Scale } from 'lucide-react'
+import type { LogEntry, DailyStats, MedicationLog, FluidLog, OutputLog, GeneralNote } from '../../types'
 
-type Tab = 'today' | 'summary' | 'appointments' | 'admin'
+type Tab = 'today' | 'summary' | 'balance' | 'appointments' | 'admin'
 
 const MODAL_TITLES: Record<LogType, string> = {
   medication: '💊 Log Medication',
@@ -29,10 +30,18 @@ const MODAL_TITLES: Record<LogType, string> = {
   note: '📝 Add Note',
 }
 
+const EDIT_TITLES: Record<LogType, string> = {
+  medication: '✏️ Edit Medication',
+  fluid: '✏️ Edit Fluid',
+  output: '✏️ Edit Output',
+  note: '✏️ Edit Note',
+}
+
 export function Dashboard() {
   const { carer, logout } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('today')
   const [openModal, setOpenModal] = useState<LogType | null>(null)
+  const [editEntry, setEditEntry] = useState<LogEntry | null>(null)
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [stats, setStats] = useState<DailyStats | null>(null)
   const [isLoadingEntries, setIsLoadingEntries] = useState(true)
@@ -62,10 +71,29 @@ export function Dashboard() {
     refresh()
   }
 
+  const handleEditSuccess = () => {
+    setEditEntry(null)
+    refresh()
+  }
+
+  const handleModalClose = () => {
+    setOpenModal(null)
+    setEditEntry(null)
+  }
+
+  const modalType: LogType | null = editEntry
+    ? (editEntry.type as LogType)
+    : openModal
+
+  const modalTitle = editEntry
+    ? EDIT_TITLES[editEntry.type as LogType]
+    : (openModal ? MODAL_TITLES[openModal] : '')
+
   const tabs = [
     { id: 'today' as Tab, label: 'Today', icon: LayoutList },
     { id: 'summary' as Tab, label: 'Summary', icon: BarChart2 },
-    { id: 'appointments' as Tab, label: 'Appointments', icon: CalendarDays },
+    { id: 'balance' as Tab, label: 'Balance', icon: Scale },
+    { id: 'appointments' as Tab, label: 'Appts', icon: CalendarDays },
     ...(can.manageAdmin(carer?.role) ? [{ id: 'admin' as Tab, label: 'Admin', icon: Settings }] : []),
   ]
 
@@ -83,7 +111,6 @@ export function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Carer avatar */}
             {carer && (
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
@@ -102,15 +129,15 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="max-w-lg mx-auto px-4 flex gap-1 pb-3">
+        {/* Tabs — scrollable on mobile */}
+        <div className="max-w-lg mx-auto px-4 flex gap-1 pb-3 overflow-x-auto no-scrollbar">
           {tabs.map(tab => {
             const Icon = tab.icon
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-nova-100 text-nova-700'
                     : 'text-gray-500 hover:text-gray-700'
@@ -128,22 +155,10 @@ export function Dashboard() {
       <main className="max-w-lg mx-auto px-4 pt-4 pb-36">
         {activeTab === 'today' && (
           <div className="space-y-4">
-            {/* Countdown */}
-            <CountdownCard
-              refreshKey={refreshKey}
-              onLogOutput={() => setOpenModal('output')}
-            />
-
-            {/* Last medication */}
+            <CountdownCard refreshKey={refreshKey} onLogOutput={() => setOpenModal('output')} />
             <LastMedCard refreshKey={refreshKey} />
-
-            {/* Stats */}
             <StatsBar stats={stats} isLoading={isLoadingStats} />
-
-            {/* Upcoming appointments */}
             <UpcomingAppointmentsStrip />
-
-            {/* Timeline */}
             <div>
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 Today's log
@@ -153,12 +168,14 @@ export function Dashboard() {
                 isLoading={isLoadingEntries}
                 onRefresh={refresh}
                 canDelete={can.deleteEntry(carer?.role)}
+                onEdit={can.deleteEntry(carer?.role) ? setEditEntry : undefined}
               />
             </div>
           </div>
         )}
 
         {activeTab === 'summary' && <DailySummaryView />}
+        {activeTab === 'balance' && <FourHourlySummary />}
         {activeTab === 'appointments' && <AppointmentList />}
         {activeTab === 'admin' && can.manageAdmin(carer?.role) && <AdminPanel />}
       </main>
@@ -168,16 +185,36 @@ export function Dashboard() {
         <ActionBar onLog={setOpenModal} />
       )}
 
-      {/* Modals */}
+      {/* Modals — new entry or edit */}
       <Modal
-        isOpen={openModal !== null}
-        onClose={() => setOpenModal(null)}
-        title={openModal ? MODAL_TITLES[openModal] : ''}
+        isOpen={modalType !== null}
+        onClose={handleModalClose}
+        title={modalTitle}
       >
-        {openModal === 'medication' && <MedicationForm onSuccess={handleLogSuccess} />}
-        {openModal === 'fluid' && <FluidForm onSuccess={handleLogSuccess} />}
-        {openModal === 'output' && <OutputForm onSuccess={handleLogSuccess} />}
-        {openModal === 'note' && <NoteForm onSuccess={handleLogSuccess} />}
+        {modalType === 'medication' && (
+          <MedicationForm
+            onSuccess={editEntry ? handleEditSuccess : handleLogSuccess}
+            initial={editEntry?.type === 'medication' ? (editEntry.data as MedicationLog) : undefined}
+          />
+        )}
+        {modalType === 'fluid' && (
+          <FluidForm
+            onSuccess={editEntry ? handleEditSuccess : handleLogSuccess}
+            initial={editEntry?.type === 'fluid' ? (editEntry.data as FluidLog) : undefined}
+          />
+        )}
+        {modalType === 'output' && (
+          <OutputForm
+            onSuccess={editEntry ? handleEditSuccess : handleLogSuccess}
+            initial={editEntry?.type === 'output' ? (editEntry.data as OutputLog) : undefined}
+          />
+        )}
+        {modalType === 'note' && (
+          <NoteForm
+            onSuccess={editEntry ? handleEditSuccess : handleLogSuccess}
+            initial={editEntry?.type === 'note' ? (editEntry.data as GeneralNote) : undefined}
+          />
+        )}
       </Modal>
     </div>
   )

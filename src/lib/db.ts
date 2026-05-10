@@ -276,6 +276,94 @@ export async function saveDailySummary(
 }
 
 // ============================================================
+// UPDATE: LOG ENTRIES
+// ============================================================
+
+export async function updateMedicationLog(
+  id: string,
+  updates: { medication_name: string; dose_given: string; given_at: string; notes: string | null }
+): Promise<MedicationLog> {
+  const { data, error } = await supabase
+    .from('medication_logs')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .maybeSingle()
+  if (error) throw error
+  if (!data) throw new Error('Update returned no row')
+  return data
+}
+
+export async function updateFluidLog(
+  id: string,
+  updates: { amount_ml: number; fluid_type: string; given_at: string; notes: string | null }
+): Promise<FluidLog> {
+  const { data, error } = await supabase
+    .from('fluid_logs')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .maybeSingle()
+  if (error) throw error
+  if (!data) throw new Error('Update returned no row')
+  return data
+}
+
+export async function updateOutputLog(
+  id: string,
+  updates: {
+    logged_at: string
+    nappy_was_dry: boolean
+    nappy_weight_g: number | null
+    catheter_ml: number | null
+    potty_ml: number | null
+    notes: string | null
+  }
+): Promise<OutputLog> {
+  const { data, error } = await supabase
+    .from('output_logs')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .maybeSingle()
+  if (error) throw error
+  if (!data) throw new Error('Update returned no row')
+  return data
+}
+
+export async function updateNote(
+  id: string,
+  updates: { content: string; category: string; noted_at: string }
+): Promise<GeneralNote> {
+  const { data, error } = await supabase
+    .from('general_notes')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .maybeSingle()
+  if (error) throw error
+  if (!data) throw new Error('Update returned no row')
+  return data
+}
+
+// ============================================================
+// FETCH: FOUR-HOURLY BALANCE DATA
+// ============================================================
+
+export async function getFourHourlyData(date?: Date): Promise<{ fluidLogs: FluidLog[]; outputLogs: OutputLog[] }> {
+  const day = date || new Date()
+  const start = startOfDay(day).toISOString()
+  const end = endOfDay(day).toISOString()
+
+  const [fluids, outputs] = await Promise.all([
+    supabase.from('fluid_logs').select('*').gte('given_at', start).lte('given_at', end).order('given_at'),
+    supabase.from('output_logs').select('*').gte('logged_at', start).lte('logged_at', end).order('logged_at'),
+  ])
+
+  return { fluidLogs: fluids.data || [], outputLogs: outputs.data || [] }
+}
+
+// ============================================================
 // FETCH: LAST MEDICATION
 // ============================================================
 

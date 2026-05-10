@@ -1,6 +1,6 @@
 import { formatTime } from '../../utils'
 import type { LogEntry } from '../../types'
-import { Pill, Droplets, Activity, FileText, Trash2 } from 'lucide-react'
+import { Pill, Droplets, Activity, FileText, Trash2, Pencil } from 'lucide-react'
 import { deleteEntry } from '../../lib/db'
 import toast from 'react-hot-toast'
 
@@ -9,9 +9,10 @@ interface TimelineProps {
   isLoading: boolean
   onRefresh: () => void
   canDelete: boolean
+  onEdit?: (entry: LogEntry) => void
 }
 
-export function Timeline({ entries, isLoading, onRefresh, canDelete }: TimelineProps) {
+export function Timeline({ entries, isLoading, onRefresh, canDelete, onEdit }: TimelineProps) {
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -55,13 +56,20 @@ export function Timeline({ entries, isLoading, onRefresh, canDelete }: TimelineP
           key={`${entry.type}-${entry.data.id}`}
           entry={entry}
           onDelete={canDelete ? () => handleDelete(entry) : undefined}
+          onEdit={onEdit ? () => onEdit(entry) : undefined}
         />
       ))}
     </div>
   )
 }
 
-function TimelineEntry({ entry, onDelete }: { entry: LogEntry; onDelete?: () => void }) {
+function TimelineEntry({
+  entry, onDelete, onEdit,
+}: {
+  entry: LogEntry
+  onDelete?: () => void
+  onEdit?: () => void
+}) {
   const config = getEntryConfig(entry)
 
   return (
@@ -81,13 +89,15 @@ function TimelineEntry({ entry, onDelete }: { entry: LogEntry; onDelete?: () => 
               <p className="text-xs text-gray-400 mt-1 italic leading-tight">"{entry.data.notes}"</p>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <span className="text-xs text-gray-400 font-medium">{formatTime(entry.time)}</span>
+            {onEdit && (
+              <button onClick={onEdit} className="p-1 text-gray-300 hover:text-nova-500 transition-colors">
+                <Pencil size={13} />
+              </button>
+            )}
             {onDelete && (
-              <button
-                onClick={onDelete}
-                className="p-1 text-gray-300 hover:text-red-400 transition-colors"
-              >
+              <button onClick={onDelete} className="p-1 text-gray-300 hover:text-red-400 transition-colors">
                 <Trash2 size={13} />
               </button>
             )}
