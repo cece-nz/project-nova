@@ -449,15 +449,12 @@ function MedicalStaffAdmin() {
   const [name, setName] = useState('')
   const [type, setType] = useState<MedicalStaffType>('gp')
   const [specialty, setSpecialty] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [staffNotes, setStaffNotes] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => { getMedicalStaff().then(setStaff) }, [])
 
   const reset = () => {
-    setName(''); setType('gp'); setSpecialty(''); setPhone(''); setEmail(''); setStaffNotes('')
+    setName(''); setType('gp'); setSpecialty('')
   }
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -467,9 +464,9 @@ function MedicalStaffAdmin() {
       await createMedicalStaff({
         name: name.trim(), type,
         specialty: specialty.trim() || null,
-        phone: phone.trim() || null,
-        email: email.trim() || null,
-        notes: staffNotes.trim() || null,
+        phone: null,
+        email: null,
+        notes: null,
       })
       toast.success(`${name} added!`)
       reset(); setShowAdd(false)
@@ -497,7 +494,6 @@ function MedicalStaffAdmin() {
                 {STAFF_TYPES.find(t => t.value === s.type)?.label ?? s.type}
                 {s.specialty ? ` · ${s.specialty}` : ''}
               </p>
-              {s.phone && <p className='text-xs text-gray-400'>{s.phone}</p>}
             </div>
             <button
               type='button' onClick={() => handleRemove(s)}
@@ -537,15 +533,6 @@ function MedicalStaffAdmin() {
           </Field>
           <Field label='Specialty (optional)'>
             <Input value={specialty} onChange={e => setSpecialty(e.target.value)} placeholder='e.g. Paediatric Urology' />
-          </Field>
-          <Field label='Phone (optional)'>
-            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder='01234 567890' inputMode='tel' />
-          </Field>
-          <Field label='Email (optional)'>
-            <Input value={email} onChange={e => setEmail(e.target.value)} placeholder='doctor@hospital.nhs.uk' type='email' />
-          </Field>
-          <Field label='Notes (optional)'>
-            <Input value={staffNotes} onChange={e => setStaffNotes(e.target.value)} placeholder='Any additional info' />
           </Field>
           <div className='flex gap-2'>
             <button type='button' onClick={() => { setShowAdd(false); reset() }}
