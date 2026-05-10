@@ -8,10 +8,10 @@ interface TimelineProps {
   entries: LogEntry[]
   isLoading: boolean
   onRefresh: () => void
-  isAdmin: boolean
+  canDelete: boolean
 }
 
-export function Timeline({ entries, isLoading, onRefresh, isAdmin }: TimelineProps) {
+export function Timeline({ entries, isLoading, onRefresh, canDelete }: TimelineProps) {
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -54,7 +54,7 @@ export function Timeline({ entries, isLoading, onRefresh, isAdmin }: TimelinePro
         <TimelineEntry
           key={`${entry.type}-${entry.data.id}`}
           entry={entry}
-          onDelete={isAdmin ? () => handleDelete(entry) : undefined}
+          onDelete={canDelete ? () => handleDelete(entry) : undefined}
         />
       ))}
     </div>

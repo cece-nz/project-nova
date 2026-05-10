@@ -1,33 +1,44 @@
 import { useState, useEffect } from 'react';
 import { getMedications, createMedication } from '../../lib/db';
 import { getAllCarers, createCarer, updateCarerPin } from '../../lib/auth';
+import { getMedicalStaff, createMedicalStaff, deactivateMedicalStaff } from '../../lib/appointments';
 import { CARER_COLORS } from '../../utils';
+import { ROLE_LABEL } from '../../lib/permissions';
 import { Field, Input } from '../ui/FormElements';
-import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
-import type { Medication } from '../../types';
+import { Plus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import type { Medication, CarerRole, MedicalStaff, MedicalStaffType } from '../../types';
 import toast from 'react-hot-toast';
 
+type AdminSection = 'carers' | 'medications' | 'medical_staff'
+
 export function AdminPanel() {
-  const [section, setSection] = useState<'carers' | 'medications' | null>(null);
+  const [section, setSection] = useState<AdminSection | null>(null);
+  const toggle = (s: AdminSection) => setSection(prev => prev === s ? null : s)
 
   return (
     <div className='space-y-4 pb-32'>
       <h2 className='text-xl font-bold text-gray-900'>Admin</h2>
 
       <AdminSection
-        title='👤 Manage Carers'
+        title='👤 Manage Users'
         isOpen={section === 'carers'}
-        onToggle={() => setSection(section === 'carers' ? null : 'carers')}
+        onToggle={() => toggle('carers')}
       >
         <CarerAdmin />
       </AdminSection>
 
       <AdminSection
+        title='🏥 Manage Medical Staff'
+        isOpen={section === 'medical_staff'}
+        onToggle={() => toggle('medical_staff')}
+      >
+        <MedicalStaffAdmin />
+      </AdminSection>
+
+      <AdminSection
         title='💊 Manage Medications'
         isOpen={section === 'medications'}
-        onToggle={() =>
-          setSection(section === 'medications' ? null : 'medications')
-        }
+        onToggle={() => toggle('medications')}
       >
         <MedicationAdmin />
       </AdminSection>
@@ -108,7 +119,9 @@ function CarerPinCard({ carer }: { carer: CarerAdminRow }) {
             <p className='text-sm font-semibold text-gray-800 truncate'>
               {carer.name}
             </p>
-            <p className='text-xs text-gray-400'>{carer.role}</p>
+            <p className='text-xs text-gray-400'>
+              {ROLE_LABEL[carer.role as CarerRole] ?? carer.role}
+            </p>
           </div>
         </div>
         {!editing && (
@@ -168,6 +181,7 @@ function CarerAdmin() {
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
+  const [role, setRole] = useState<CarerRole>('helper');
   const [color, setColor] = useState(CARER_COLORS[0]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -183,14 +197,15 @@ function CarerAdmin() {
     }
     setIsLoading(true);
     try {
-      await createCarer(name.trim(), pin, 'carer', color);
+      await createCarer(name.trim(), pin, role, color);
       toast.success(`${name} added!`);
       setName('');
       setPin('');
+      setRole('helper');
       setShowAdd(false);
       getAllCarers().then(setCarers);
     } catch {
-      toast.error('Failed to add carer');
+      toast.error('Failed to add user');
     } finally {
       setIsLoading(false);
     }
@@ -209,19 +224,19 @@ function CarerAdmin() {
           onClick={() => setShowAdd(true)}
           className='flex items-center gap-2 text-sm font-semibold text-nova-600 hover:text-nova-700'
         >
-          <Plus size={16} /> Add carer
+          <Plus size={16} /> Add user
         </button>
       ) : (
         <form
           onSubmit={handleAdd}
           className='border border-gray-200 rounded-2xl p-4 space-y-3'
         >
-          <p className='font-semibold text-gray-700 text-sm'>New carer</p>
+          <p className='font-semibold text-gray-700 text-sm'>New user</p>
           <Field label='Name'>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder='Carer name'
+              placeholder='Full name'
               required
             />
           </Field>
@@ -235,6 +250,27 @@ function CarerAdmin() {
               inputMode='numeric'
               required
             />
+          </Field>
+          <Field
+            label='Role'
+            hint='Admin: full access · Medical: read-only · Helper: log entries only'
+          >
+            <div className='flex gap-2'>
+              {(['admin', 'medical', 'helper'] as CarerRole[]).map((r) => (
+                <button
+                  key={r}
+                  type='button'
+                  onClick={() => setRole(r)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    role === r
+                      ? 'bg-nova-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {ROLE_LABEL[r]}
+                </button>
+              ))}
+            </div>
           </Field>
           <Field label='Colour'>
             <div className='flex gap-2 flex-wrap'>
@@ -392,4 +428,135 @@ function MedicationAdmin() {
       )}
     </div>
   );
+}
+
+// ============================================================
+// Medical staff admin
+// ============================================================
+
+const STAFF_TYPES: { value: MedicalStaffType; label: string }[] = [
+  { value: 'gp', label: 'GP' },
+  { value: 'specialist', label: 'Specialist' },
+  { value: 'nurse', label: 'Nurse' },
+  { value: 'physio', label: 'Physio' },
+  { value: 'therapist', label: 'Therapist' },
+  { value: 'other', label: 'Other' },
+]
+
+function MedicalStaffAdmin() {
+  const [staff, setStaff] = useState<MedicalStaff[]>([])
+  const [showAdd, setShowAdd] = useState(false)
+  const [name, setName] = useState('')
+  const [type, setType] = useState<MedicalStaffType>('gp')
+  const [specialty, setSpecialty] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [staffNotes, setStaffNotes] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => { getMedicalStaff().then(setStaff) }, [])
+
+  const reset = () => {
+    setName(''); setType('gp'); setSpecialty(''); setPhone(''); setEmail(''); setStaffNotes('')
+  }
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    try {
+      await createMedicalStaff({
+        name: name.trim(), type,
+        specialty: specialty.trim() || null,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        notes: staffNotes.trim() || null,
+      })
+      toast.success(`${name} added!`)
+      reset(); setShowAdd(false)
+      getMedicalStaff().then(setStaff)
+    } catch { toast.error('Failed to add medical staff') }
+    finally { setIsLoading(false) }
+  }
+
+  const handleRemove = async (s: MedicalStaff) => {
+    try {
+      await deactivateMedicalStaff(s.id)
+      toast.success(`${s.name} removed`)
+      getMedicalStaff().then(setStaff)
+    } catch { toast.error('Failed to remove') }
+  }
+
+  return (
+    <div>
+      <div className='space-y-2 mb-4'>
+        {staff.map(s => (
+          <div key={s.id} className='p-3 bg-gray-50 rounded-xl flex items-center justify-between gap-2'>
+            <div className='min-w-0'>
+              <p className='text-sm font-semibold text-gray-800 truncate'>{s.name}</p>
+              <p className='text-xs text-gray-500'>
+                {STAFF_TYPES.find(t => t.value === s.type)?.label ?? s.type}
+                {s.specialty ? ` · ${s.specialty}` : ''}
+              </p>
+              {s.phone && <p className='text-xs text-gray-400'>{s.phone}</p>}
+            </div>
+            <button
+              type='button' onClick={() => handleRemove(s)}
+              className='shrink-0 p-1.5 text-gray-300 hover:text-red-400 transition-colors'
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+        {staff.length === 0 && (
+          <p className='text-sm text-gray-400 italic'>No medical staff added yet.</p>
+        )}
+      </div>
+
+      {!showAdd ? (
+        <button onClick={() => setShowAdd(true)}
+          className='flex items-center gap-2 text-sm font-semibold text-nova-600 hover:text-nova-700'
+        >
+          <Plus size={16} /> Add medical staff
+        </button>
+      ) : (
+        <form onSubmit={handleAdd} className='border border-gray-200 rounded-2xl p-4 space-y-3'>
+          <p className='font-semibold text-gray-700 text-sm'>New medical staff</p>
+          <Field label='Name'>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder='Dr. Smith' required />
+          </Field>
+          <Field label='Type'>
+            <div className='flex flex-wrap gap-2'>
+              {STAFF_TYPES.map(t => (
+                <button key={t.value} type='button' onClick={() => setType(t.value)}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                    type === t.value ? 'bg-nova-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >{t.label}</button>
+              ))}
+            </div>
+          </Field>
+          <Field label='Specialty (optional)'>
+            <Input value={specialty} onChange={e => setSpecialty(e.target.value)} placeholder='e.g. Paediatric Urology' />
+          </Field>
+          <Field label='Phone (optional)'>
+            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder='01234 567890' inputMode='tel' />
+          </Field>
+          <Field label='Email (optional)'>
+            <Input value={email} onChange={e => setEmail(e.target.value)} placeholder='doctor@hospital.nhs.uk' type='email' />
+          </Field>
+          <Field label='Notes (optional)'>
+            <Input value={staffNotes} onChange={e => setStaffNotes(e.target.value)} placeholder='Any additional info' />
+          </Field>
+          <div className='flex gap-2'>
+            <button type='button' onClick={() => { setShowAdd(false); reset() }}
+              className='flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600'
+            >Cancel</button>
+            <button type='submit' disabled={isLoading}
+              className='flex-1 py-3 rounded-xl bg-nova-500 text-white text-sm font-semibold disabled:opacity-60'
+            >{isLoading ? 'Adding...' : 'Add'}</button>
+          </div>
+        </form>
+      )}
+    </div>
+  )
 }

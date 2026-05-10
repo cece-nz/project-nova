@@ -6,11 +6,20 @@
   html {
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
+    /* Leaves room for the sticky app header when the browser scrolls a focused
+       input into view on mobile; otherwise the input ends up behind the header. */
+    scroll-padding-top: 7rem;
   }
 
   body {
     @apply font-sans antialiased bg-gray-50 text-gray-900;
     overscroll-behavior: none;
+  }
+
+  /* Same protection inside scrollable containers (e.g. modal body) where
+     scroll-padding-top on html does not apply. */
+  input, textarea, select {
+    scroll-margin-top: 7rem;
   }
 
   /* Safe area for bottom bar on iOS */

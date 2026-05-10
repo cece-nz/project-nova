@@ -36,10 +36,6 @@ export async function createMedication(med: Omit<Medication, 'id' | 'created_at'
     .select()
     .maybeSingle()
 
-  // #region agent log
-  fetch('http://127.0.0.1:7731/ingest/7ed87461-f639-4d91-84b6-9b6411a1ad64',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e48aa4'},body:JSON.stringify({sessionId:'e48aa4',runId:'pre-fix',hypothesisId:'D',location:'db.ts:createMedication',message:'after medications insert single()',data:{pgCode:error?.code,pgMsg:error?.message,hasData:!!data},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   if (error) throw error
   if (!data) throw new Error('Medication insert did not return a row; check SELECT RLS on `medications`.')
   return data
@@ -238,10 +234,6 @@ export async function getLastOutput(): Promise<OutputLog | null> {
     .limit(1)
     .maybeSingle()
 
-  // #region agent log
-  fetch('http://127.0.0.1:7731/ingest/7ed87461-f639-4d91-84b6-9b6411a1ad64',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e48aa4'},body:JSON.stringify({sessionId:'e48aa4',runId:'pre-fix',hypothesisId:'A',location:'db.ts:getLastOutput',message:'after output_logs single()',data:{pgCode:error?.code,pgMsg:error?.message,hasData:!!data},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   if (error) return null
   return data as OutputLog | null
 }
@@ -257,10 +249,6 @@ export async function getDailySummary(date: Date): Promise<DailySummary | null> 
     .select('*, carer:carer_id(id, name, color)')
     .eq('summary_date', dateStr)
     .maybeSingle()
-
-  // #region agent log
-  fetch('http://127.0.0.1:7731/ingest/7ed87461-f639-4d91-84b6-9b6411a1ad64',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e48aa4'},body:JSON.stringify({sessionId:'e48aa4',runId:'pre-fix',hypothesisId:'B',location:'db.ts:getDailySummary',message:'after daily_summaries single()',data:{summaryDate:dateStr,pgCode:error?.code,pgMsg:error?.message,hasData:!!data},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 
   if (error || !data) return null
   return data as DailySummary
@@ -281,14 +269,25 @@ export async function saveDailySummary(
     .select()
     .maybeSingle()
 
-  // #region agent log
-  fetch('http://127.0.0.1:7731/ingest/7ed87461-f639-4d91-84b6-9b6411a1ad64',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e48aa4'},body:JSON.stringify({sessionId:'e48aa4',runId:'pre-fix',hypothesisId:'F',location:'db.ts:saveDailySummary',message:'after upsert single()',data:{summaryDate:dateStr,pgCode:error?.code,pgMsg:error?.message,hasData:!!data},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   if (error) throw error
   if (!data)
     throw new Error('Daily summary upsert did not return a row; check SELECT RLS on `daily_summaries`.')
   return data as DailySummary
+}
+
+// ============================================================
+// FETCH: LAST MEDICATION
+// ============================================================
+
+export async function getLastMedication(): Promise<MedicationLog | null> {
+  const { data, error } = await supabase
+    .from('medication_logs')
+    .select('*')
+    .order('given_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) return null
+  return data as MedicationLog | null
 }
 
 export async function deleteEntry(

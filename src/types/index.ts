@@ -2,11 +2,13 @@
 // Database types matching Supabase schema
 // ============================================================
 
+export type CarerRole = 'admin' | 'medical' | 'helper'
+
 export interface Carer {
   id: string
   name: string
   pin_hash: string
-  role: 'admin' | 'carer'
+  role: CarerRole
   color: string
   created_at: string
   is_active: boolean
@@ -138,6 +140,77 @@ export interface GeneralNoteForm {
   content: string
   category: NoteCategory
   noted_at: string
+}
+
+// ============================================================
+// Medical staff & appointments
+// ============================================================
+
+export type MedicalStaffType = 'gp' | 'specialist' | 'nurse' | 'physio' | 'therapist' | 'other'
+export type AppointmentMode = 'telephone' | 'in_person'
+export type AppointmentStatus = 'upcoming' | 'completed' | 'cancelled'
+export type AppointmentNoteType = 'shared' | 'person'
+
+export interface MedicalStaff {
+  id: string
+  name: string
+  type: MedicalStaffType
+  specialty: string | null
+  phone: string | null
+  email: string | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface Appointment {
+  id: string
+  title: string
+  medical_staff_id: string | null
+  appointment_date: string
+  duration_minutes: number | null
+  mode: AppointmentMode
+  location: string | null
+  status: AppointmentStatus
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  medical_staff?: MedicalStaff
+}
+
+export interface AppointmentNote {
+  id: string
+  appointment_id: string
+  note_type: AppointmentNoteType
+  content: string
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  author?: { id: string; name: string; color: string }
+}
+
+export interface AppointmentDocument {
+  id: string
+  appointment_id: string
+  filename: string
+  storage_path: string
+  mime_type: string | null
+  size_bytes: number | null
+  uploaded_by: string | null
+  created_at: string
+  uploader?: { id: string; name: string }
+}
+
+export interface AppointmentAction {
+  id: string
+  appointment_id: string
+  description: string
+  is_completed: boolean
+  completed_by: string | null
+  completed_at: string | null
+  created_by: string | null
+  created_at: string
+  completer?: { id: string; name: string }
 }
 
 // ============================================================

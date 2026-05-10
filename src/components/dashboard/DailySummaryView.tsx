@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getDailySummary, saveDailySummary, getDailyStats } from '../../lib/db'
 import { useAuth } from '../../hooks/useAuth'
+import { can } from '../../lib/permissions'
 import { format } from 'date-fns'
 import { Textarea, SubmitButton } from '../ui/FormElements'
 import toast from 'react-hot-toast'
@@ -65,22 +66,39 @@ export function DailySummaryView({ date = new Date() }: Props) {
       )}
 
       {/* Manual notes */}
-      <form onSubmit={handleSave}>
-        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-          Daily notes &amp; observations
-        </label>
-        <Textarea
-          value={content}
-          onChange={e => setContent(e.target.value)}
-          placeholder="How was Nova's day overall? Any concerns or highlights to note for the next shift..."
-          rows={5}
-        />
-        <SubmitButton
-          isLoading={isSaving}
-          label={summary ? 'Update Summary' : 'Save Summary'}
-          loadingLabel="Saving..."
-        />
-      </form>
+      {can.editDailySummary(carer?.role) ? (
+        <form onSubmit={handleSave}>
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            Daily notes &amp; observations
+          </label>
+          <Textarea
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            placeholder="How was Nova's day overall? Any concerns or highlights to note for the next shift..."
+            rows={5}
+          />
+          <SubmitButton
+            isLoading={isSaving}
+            label={summary ? 'Update Summary' : 'Save Summary'}
+            loadingLabel="Saving..."
+          />
+        </form>
+      ) : (
+        <div>
+          <p className="block text-sm font-semibold text-gray-700 mb-1.5">
+            Daily notes &amp; observations
+          </p>
+          {summary?.content ? (
+            <div className="bg-gray-50 rounded-2xl p-4 text-sm text-gray-700 whitespace-pre-wrap">
+              {summary.content}
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-2xl p-4 text-sm text-gray-400 italic">
+              No notes yet for this day.
+            </div>
+          )}
+        </div>
+      )}
 
       {summary && (
         <p className="text-xs text-gray-400 text-center">

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { CountdownCard } from './CountdownCard'
+import { LastMedCard } from './LastMedCard'
+import { UpcomingAppointmentsStrip } from './UpcomingAppointmentsStrip'
 import { StatsBar } from './StatsBar'
 import { Timeline } from './Timeline'
 import { ActionBar, type LogType } from '../layout/ActionBar'
@@ -10,13 +12,15 @@ import { OutputForm } from '../forms/OutputForm'
 import { NoteForm } from '../forms/NoteForm'
 import { DailySummaryView } from './DailySummaryView'
 import { AdminPanel } from './AdminPanel'
+import { AppointmentList } from '../appointments/AppointmentList'
 import { useAuth } from '../../hooks/useAuth'
+import { can } from '../../lib/permissions'
 import { getTodayEntries, getDailyStats } from '../../lib/db'
 import { format } from 'date-fns'
-import { LogOut, LayoutList, BarChart2, Settings } from 'lucide-react'
+import { LogOut, LayoutList, BarChart2, Settings, CalendarDays } from 'lucide-react'
 import type { LogEntry, DailyStats } from '../../types'
 
-type Tab = 'today' | 'summary' | 'admin'
+type Tab = 'today' | 'summary' | 'appointments' | 'admin'
 
 const MODAL_TITLES: Record<LogType, string> = {
   medication: '💊 Log Medication',
@@ -61,7 +65,8 @@ export function Dashboard() {
   const tabs = [
     { id: 'today' as Tab, label: 'Today', icon: LayoutList },
     { id: 'summary' as Tab, label: 'Summary', icon: BarChart2 },
-    ...(carer?.role === 'admin' ? [{ id: 'admin' as Tab, label: 'Admin', icon: Settings }] : []),
+    { id: 'appointments' as Tab, label: 'Appointments', icon: CalendarDays },
+    ...(can.manageAdmin(carer?.role) ? [{ id: 'admin' as Tab, label: 'Admin', icon: Settings }] : []),
   ]
 
   return (
@@ -129,8 +134,14 @@ export function Dashboard() {
               onLogOutput={() => setOpenModal('output')}
             />
 
+            {/* Last medication */}
+            <LastMedCard refreshKey={refreshKey} />
+
             {/* Stats */}
             <StatsBar stats={stats} isLoading={isLoadingStats} />
+
+            {/* Upcoming appointments */}
+            <UpcomingAppointmentsStrip />
 
             {/* Timeline */}
             <div>
@@ -141,18 +152,19 @@ export function Dashboard() {
                 entries={entries}
                 isLoading={isLoadingEntries}
                 onRefresh={refresh}
-                isAdmin={carer?.role === 'admin'}
+                canDelete={can.deleteEntry(carer?.role)}
               />
             </div>
           </div>
         )}
 
         {activeTab === 'summary' && <DailySummaryView />}
-        {activeTab === 'admin' && carer?.role === 'admin' && <AdminPanel />}
+        {activeTab === 'appointments' && <AppointmentList />}
+        {activeTab === 'admin' && can.manageAdmin(carer?.role) && <AdminPanel />}
       </main>
 
-      {/* Action bar (today tab only) */}
-      {activeTab === 'today' && (
+      {/* Action bar — hidden for medical (read-only) */}
+      {activeTab === 'today' && can.logEntry(carer?.role) && (
         <ActionBar onLog={setOpenModal} />
       )}
 

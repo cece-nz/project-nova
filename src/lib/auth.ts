@@ -1,12 +1,10 @@
 import bcrypt from 'bcryptjs';
 import { supabase } from './supabase';
-import type { Carer } from '../types';
+import type { Carer, CarerRole } from '../types';
 
 const STORAGE_KEY = 'nova_care_carer';
 
 export async function loginWithPin(name: string, pin: string): Promise<Carer> {
-  // Fetch carer by name
-
   const { data: carers, error } = await supabase
     .from('carers')
     .select('*')
@@ -15,11 +13,10 @@ export async function loginWithPin(name: string, pin: string): Promise<Carer> {
     .limit(1);
 
   if (error) throw new Error('Failed to connect to database');
-  if (!carers || carers.length === 0) throw new Error('Carer not found');
+  if (!carers || carers.length === 0) throw new Error('User not found');
 
   const carer = carers[0] as Carer;
 
-  // Verify PIN
   const valid = await bcrypt.compare(pin, carer.pin_hash);
   if (!valid) throw new Error('Incorrect PIN');
 
@@ -60,7 +57,7 @@ export async function getAllCarers(): Promise<
 export async function createCarer(
   name: string,
   pin: string,
-  role: 'admin' | 'carer' = 'carer',
+  role: CarerRole = 'helper',
   color: string = '#6366f1',
 ): Promise<Carer> {
   const pin_hash = await hashPin(pin);
@@ -71,14 +68,10 @@ export async function createCarer(
     .select()
     .maybeSingle();
 
-  // #region agent log
-  fetch('http://127.0.0.1:7731/ingest/7ed87461-f639-4d91-84b6-9b6411a1ad64',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e48aa4'},body:JSON.stringify({sessionId:'e48aa4',runId:'pre-fix',hypothesisId:'C',location:'auth.ts:createCarer',message:'after carers insert single()',data:{pgCode:error?.code,pgMsg:error?.message,nameLen:name.length,hasData:!!data},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   if (error) throw error;
   if (!data) {
     throw new Error(
-      'Carer insert did not return a row. Confirm RLS policies allow SELECT on `carers` for the anon key after INSERT.',
+      'User insert did not return a row. Confirm RLS policies allow SELECT on `carers` for the anon key after INSERT.',
     );
   }
   return data as Carer;
