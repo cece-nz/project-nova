@@ -57,7 +57,7 @@ export function CountdownCard({ refreshKey, onLogOutput }: CountdownCardProps) {
         {/* Text */}
         <div className="flex-1 min-w-0">
           <p className="text-white/80 text-xs font-medium uppercase tracking-wider mb-1">
-            Nappy · Catheter · Potty
+            Last catheter emptied
           </p>
           {isLoading ? (
             <p className="text-white font-semibold text-lg">Loading...</p>

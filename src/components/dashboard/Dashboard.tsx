@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { CountdownCard } from './CountdownCard'
 import { LastMedCard } from './LastMedCard'
 import { UpcomingAppointmentsStrip } from './UpcomingAppointmentsStrip'
-import { FourHourlySummary } from './FourHourlySummary'
 import { StatsBar } from './StatsBar'
 import { Timeline } from './Timeline'
 import { ActionBar, type LogType } from '../layout/ActionBar'
@@ -18,10 +17,10 @@ import { useAuth } from '../../hooks/useAuth'
 import { can } from '../../lib/permissions'
 import { getTodayEntries, getDailyStats } from '../../lib/db'
 import { format } from 'date-fns'
-import { LogOut, LayoutList, BarChart2, Settings, CalendarDays, Scale } from 'lucide-react'
+import { LogOut, LayoutList, BarChart2, Settings, CalendarDays } from 'lucide-react'
 import type { LogEntry, DailyStats, MedicationLog, FluidLog, OutputLog, GeneralNote } from '../../types'
 
-type Tab = 'today' | 'summary' | 'balance' | 'appointments' | 'admin'
+type Tab = 'today' | 'summary' | 'appointments' | 'admin'
 
 const MODAL_TITLES: Record<LogType, string> = {
   medication: '💊 Log Medication',
@@ -92,7 +91,6 @@ export function Dashboard() {
   const tabs = [
     { id: 'today' as Tab, label: 'Today', icon: LayoutList },
     { id: 'summary' as Tab, label: 'Summary', icon: BarChart2 },
-    { id: 'balance' as Tab, label: 'Balance', icon: Scale },
     { id: 'appointments' as Tab, label: 'Appts', icon: CalendarDays },
     ...(can.manageAdmin(carer?.role) ? [{ id: 'admin' as Tab, label: 'Admin', icon: Settings }] : []),
   ]
@@ -175,7 +173,6 @@ export function Dashboard() {
         )}
 
         {activeTab === 'summary' && <DailySummaryView />}
-        {activeTab === 'balance' && <FourHourlySummary />}
         {activeTab === 'appointments' && <AppointmentList />}
         {activeTab === 'admin' && can.manageAdmin(carer?.role) && <AdminPanel />}
       </main>

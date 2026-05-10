@@ -347,20 +347,36 @@ export async function updateNote(
 }
 
 // ============================================================
-// FETCH: FOUR-HOURLY BALANCE DATA
+// FETCH: CATHETER BLOCK DATA
 // ============================================================
 
-export async function getFourHourlyData(date?: Date): Promise<{ fluidLogs: FluidLog[]; outputLogs: OutputLog[] }> {
-  const day = date || new Date()
-  const start = startOfDay(day).toISOString()
-  const end = endOfDay(day).toISOString()
+export async function getLastCatheterOutput(): Promise<OutputLog | null> {
+  const { data, error } = await supabase
+    .from('output_logs')
+    .select('*')
+    .gt('catheter_ml', 0)
+    .order('logged_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) return null
+  return data as OutputLog | null
+}
 
-  const [fluids, outputs] = await Promise.all([
-    supabase.from('fluid_logs').select('*').gte('given_at', start).lte('given_at', end).order('given_at'),
-    supabase.from('output_logs').select('*').gte('logged_at', start).lte('logged_at', end).order('logged_at'),
+export async function getCatheterBlockData(): Promise<{
+  catheterLogs: OutputLog[]
+  allFluidLogs: FluidLog[]
+  allOutputLogs: OutputLog[]
+}> {
+  const [catheter, fluids, outputs] = await Promise.all([
+    supabase.from('output_logs').select('*').gt('catheter_ml', 0).order('logged_at'),
+    supabase.from('fluid_logs').select('*').order('given_at'),
+    supabase.from('output_logs').select('*').order('logged_at'),
   ])
-
-  return { fluidLogs: fluids.data || [], outputLogs: outputs.data || [] }
+  return {
+    catheterLogs: (catheter.data || []) as OutputLog[],
+    allFluidLogs: (fluids.data || []) as FluidLog[],
+    allOutputLogs: (outputs.data || []) as OutputLog[],
+  }
 }
 
 // ============================================================

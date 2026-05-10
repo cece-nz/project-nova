@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getLastOutput } from '../lib/db'
+import { getLastCatheterOutput } from '../lib/db'
 import { getCountdownInfo } from '../utils'
 
 export interface CountdownState {
@@ -24,7 +24,7 @@ export function useCountdown(refreshKey?: number) {
 
     async function fetchLast() {
       try {
-        const last = await getLastOutput()
+        const last = await getLastCatheterOutput()
         if (!cancelled) {
           setState(prev => ({
             ...prev,

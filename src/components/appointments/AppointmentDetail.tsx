@@ -137,13 +137,23 @@ export function AppointmentDetail({ appointment: initial, onBack, onUpdated }: P
 
       {/* Tab content */}
       {(tab === 'shared' || tab === 'person') && (
-        <NotesSection appointmentId={appt.id} noteType={tab} canEdit={isAdmin} />
+        <NotesSection
+          appointmentId={appt.id}
+          noteType={tab}
+          canAdd={canDetail}
+          canDelete={isAdmin}
+        />
       )}
       {tab === 'documents' && (
         <DocumentsSection appointmentId={appt.id} canUpload={isAdmin} carerId={carer?.id} />
       )}
       {tab === 'actions' && canDetail && (
-        <ActionsSection appointmentId={appt.id} canEdit={isAdmin} carerId={carer?.id} />
+        <ActionsSection
+          appointmentId={appt.id}
+          canAdd={canDetail}
+          canDelete={isAdmin}
+          carerId={carer?.id}
+        />
       )}
     </div>
   )
@@ -187,8 +197,8 @@ function StatusSelector({ appt, onUpdate }: { appt: Appointment; onUpdate: (a: A
 // ── Notes section ────────────────────────────────────────────
 
 function NotesSection({
-  appointmentId, noteType, canEdit,
-}: { appointmentId: string; noteType: 'shared' | 'person'; canEdit: boolean }) {
+  appointmentId, noteType, canAdd, canDelete,
+}: { appointmentId: string; noteType: 'shared' | 'person'; canAdd: boolean; canDelete: boolean }) {
   const { carer } = useAuth()
   const [notes, setNotes] = useState<AppointmentNote[]>([])
   const [newNote, setNewNote] = useState('')
@@ -227,7 +237,7 @@ function NotesSection({
         <div key={note.id} className='bg-white rounded-2xl border border-gray-100 p-4'>
           <div className='flex items-start justify-between gap-2'>
             <p className='text-sm text-gray-800 whitespace-pre-wrap flex-1'>{note.content}</p>
-            {canEdit && (
+            {canDelete && (
               <button onClick={() => handleDelete(note.id)} className='shrink-0 p-1 text-gray-300 hover:text-red-400'>
                 <Trash2 size={13} />
               </button>
@@ -244,7 +254,7 @@ function NotesSection({
         </div>
       ))}
 
-      {canEdit && (
+      {canAdd && (
         <div className='space-y-2'>
           <Textarea
             value={newNote}
@@ -358,8 +368,8 @@ function DocumentsSection({
 // ── Actions section ──────────────────────────────────────────
 
 function ActionsSection({
-  appointmentId, canEdit, carerId,
-}: { appointmentId: string; canEdit: boolean; carerId?: string }) {
+  appointmentId, canAdd, canDelete, carerId,
+}: { appointmentId: string; canAdd: boolean; canDelete: boolean; carerId?: string }) {
   const [actions, setActions] = useState<AppointmentAction[]>([])
   const [newAction, setNewAction] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -415,7 +425,7 @@ function ActionsSection({
               <p className='text-xs text-gray-400'>Done by {action.completer.name}</p>
             )}
           </div>
-          {canEdit && (
+          {canDelete && (
             <button onClick={() => handleDelete(action.id)} className='shrink-0 p-1 text-gray-300 hover:text-red-400'>
               <Trash2 size={13} />
             </button>
@@ -423,7 +433,7 @@ function ActionsSection({
         </div>
       ))}
 
-      {canEdit && (
+      {canAdd && (
         <div className='flex gap-2'>
           <input
             value={newAction}
