@@ -121,15 +121,17 @@ export function AppointmentForm({ appointment, onSuccess, onCancel }: Props) {
         <button
           type='button'
           onClick={onCancel}
-          className='flex-1 py-3 rounded-2xl border border-gray-200 text-sm font-medium text-gray-600'
+          className='flex-[3] py-3 rounded-2xl border border-gray-200 text-sm font-medium text-gray-600'
         >
           Cancel
         </button>
-        <SubmitButton
-          isLoading={isLoading}
-          label={appointment ? 'Update' : 'Add appointment'}
-          loadingLabel='Saving...'
-        />
+        <div className='flex-[7]'>
+          <SubmitButton
+            isLoading={isLoading}
+            label={appointment ? 'Update' : 'Add appointment'}
+            loadingLabel='Saving...'
+          />
+        </div>
       </div>
     </form>
   )
