@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
 import { getMedications, createMedication } from '../../lib/db';
 import { getAllCarers, createCarer, updateCarerPin, deleteCarer } from '../../lib/auth';
-import { getMedicalStaff, createMedicalStaff, deactivateMedicalStaff } from '../../lib/appointments';
+import {
+  getMedicalStaff, createMedicalStaff, deactivateMedicalStaff,
+  getStaffAddresses, getSharedAddresses, createSavedAddress, deleteSavedAddress,
+} from '../../lib/appointments';
+import { AddressAutocomplete, type AddressValue } from '../ui/AddressAutocomplete';
 import { CARER_COLORS } from '../../utils';
 import { ROLE_LABEL } from '../../lib/permissions';
 import { useAuth } from '../../hooks/useAuth';
 import { Field, Input } from '../ui/FormElements';
 import { Plus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
-import type { Medication, CarerRole, MedicalStaff, MedicalStaffType } from '../../types';
+import type { Medication, CarerRole, MedicalStaff, SavedAddress, MedicalStaffType } from '../../types';
 import toast from 'react-hot-toast';
 
-type AdminSection = 'carers' | 'medications' | 'medical_staff'
+type AdminSection = 'carers' | 'medications' | 'medical_staff' | 'addresses'
 
 export function AdminPanel() {
   const [section, setSection] = useState<AdminSection | null>(null);
@@ -34,6 +38,14 @@ export function AdminPanel() {
         onToggle={() => toggle('medical_staff')}
       >
         <MedicalStaffAdmin />
+      </AdminSection>
+
+      <AdminSection
+        title='📍 Shared Addresses'
+        isOpen={section === 'addresses'}
+        onToggle={() => toggle('addresses')}
+      >
+        <SharedAddressesAdmin />
       </AdminSection>
 
       <AdminSection
@@ -540,21 +552,7 @@ function MedicalStaffAdmin() {
     <div>
       <div className='space-y-2 mb-4'>
         {staff.map(s => (
-          <div key={s.id} className='p-3 bg-gray-50 rounded-xl flex items-center justify-between gap-2'>
-            <div className='min-w-0'>
-              <p className='text-sm font-semibold text-gray-800 truncate'>{s.name}</p>
-              <p className='text-xs text-gray-500'>
-                {STAFF_TYPES.find(t => t.value === s.type)?.label ?? s.type}
-                {s.specialty ? ` · ${s.specialty}` : ''}
-              </p>
-            </div>
-            <button
-              type='button' onClick={() => handleRemove(s)}
-              className='shrink-0 p-1.5 text-gray-300 hover:text-red-400 transition-colors'
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+          <MedicalStaffCard key={s.id} staff={s} onRemove={() => handleRemove(s)} />
         ))}
         {staff.length === 0 && (
           <p className='text-sm text-gray-400 italic'>No medical staff added yet.</p>
@@ -594,6 +592,286 @@ function MedicalStaffAdmin() {
             <button type='submit' disabled={isLoading}
               className='flex-1 py-3 rounded-xl bg-nova-500 text-white text-sm font-semibold disabled:opacity-60'
             >{isLoading ? 'Adding...' : 'Add'}</button>
+          </div>
+        </form>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// Medical staff card with expandable addresses
+// ============================================================
+
+function MedicalStaffCard({ staff, onRemove }: { staff: MedicalStaff; onRemove: () => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const [addresses, setAddresses] = useState<SavedAddress[]>([])
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false)
+  const [showAddAddress, setShowAddAddress] = useState(false)
+  const [addrLabel, setAddrLabel] = useState('')
+  const [addrValue, setAddrValue] = useState<AddressValue>({ address: '', latitude: null, longitude: null })
+  const [isSaving, setIsSaving] = useState(false)
+
+  const loadAddresses = () => {
+    setIsLoadingAddresses(true)
+    getStaffAddresses(staff.id)
+      .then(setAddresses)
+      .finally(() => setIsLoadingAddresses(false))
+  }
+
+  const handleExpand = () => {
+    const next = !expanded
+    setExpanded(next)
+    if (next && addresses.length === 0) loadAddresses()
+  }
+
+  const handleAddAddress = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!addrLabel.trim() || !addrValue.address.trim()) return
+    setIsSaving(true)
+    try {
+      await createSavedAddress({
+        medical_staff_id: staff.id,
+        label: addrLabel.trim(),
+        address: addrValue.address,
+        latitude: addrValue.latitude,
+        longitude: addrValue.longitude,
+      })
+      toast.success('Address added')
+      setAddrLabel('')
+      setAddrValue({ address: '', latitude: null, longitude: null })
+      setShowAddAddress(false)
+      loadAddresses()
+    } catch {
+      toast.error('Failed to add address')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleRemoveAddress = async (id: string) => {
+    try {
+      await deleteSavedAddress(id)
+      toast.success('Address removed')
+      loadAddresses()
+    } catch {
+      toast.error('Failed to remove address')
+    }
+  }
+
+  return (
+    <div className='bg-gray-50 rounded-xl overflow-hidden'>
+      <div className='p-3 flex items-center justify-between gap-2'>
+        <button onClick={handleExpand} className='flex-1 min-w-0 text-left'>
+          <p className='text-sm font-semibold text-gray-800 truncate'>{staff.name}</p>
+          <p className='text-xs text-gray-500'>
+            {STAFF_TYPES.find(t => t.value === staff.type)?.label ?? staff.type}
+            {staff.specialty ? ` · ${staff.specialty}` : ''}
+          </p>
+        </button>
+        <div className='flex items-center gap-1 shrink-0'>
+          <button onClick={handleExpand} className='p-1.5 text-gray-400'>
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          <button type='button' onClick={onRemove} className='p-1.5 text-gray-300 hover:text-red-400 transition-colors'>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className='px-3 pb-3 border-t border-gray-200/60 pt-3 space-y-2'>
+          <p className='text-xs font-semibold text-gray-500 uppercase tracking-wide'>Addresses</p>
+
+          {isLoadingAddresses ? (
+            <div className='h-12 bg-gray-100 rounded-lg animate-pulse' />
+          ) : addresses.length === 0 ? (
+            <p className='text-xs text-gray-400 italic'>No saved addresses yet.</p>
+          ) : (
+            <div className='space-y-1.5'>
+              {addresses.map(a => (
+                <div key={a.id} className='bg-white rounded-lg p-2.5 flex items-start justify-between gap-2'>
+                  <div className='min-w-0'>
+                    <p className='text-xs font-semibold text-gray-700'>{a.label}</p>
+                    <p className='text-xs text-gray-500 mt-0.5'>{a.address}</p>
+                  </div>
+                  <button type='button' onClick={() => handleRemoveAddress(a.id)} className='shrink-0 p-1 text-gray-300 hover:text-red-400'>
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!showAddAddress ? (
+            <button
+              type='button'
+              onClick={() => setShowAddAddress(true)}
+              className='flex items-center gap-1.5 text-xs font-semibold text-nova-600 hover:text-nova-700 pt-1'
+            >
+              <Plus size={12} /> Add address
+            </button>
+          ) : (
+            <form onSubmit={handleAddAddress} className='border border-gray-200 bg-white rounded-xl p-3 space-y-2'>
+              <Field label='Label'>
+                <Input
+                  value={addrLabel}
+                  onChange={e => setAddrLabel(e.target.value)}
+                  placeholder='e.g. Main clinic, RCH'
+                  required
+                />
+              </Field>
+              <Field label='Address'>
+                <AddressAutocomplete
+                  value={addrValue.address}
+                  onChange={setAddrValue}
+                  placeholder='Start typing an address…'
+                  required
+                />
+              </Field>
+              <div className='flex gap-2'>
+                <button
+                  type='button'
+                  onClick={() => {
+                    setShowAddAddress(false)
+                    setAddrLabel('')
+                    setAddrValue({ address: '', latitude: null, longitude: null })
+                  }}
+                  className='flex-[3] py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600'
+                >
+                  Cancel
+                </button>
+                <button
+                  type='submit'
+                  disabled={isSaving}
+                  className='flex-[7] py-2.5 rounded-xl bg-nova-500 text-white text-sm font-semibold disabled:opacity-60'
+                >
+                  {isSaving ? 'Saving…' : 'Save address'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// Shared addresses admin — not tied to a specific medical staff
+// ============================================================
+
+function SharedAddressesAdmin() {
+  const [addresses, setAddresses] = useState<SavedAddress[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [label, setLabel] = useState('')
+  const [addrValue, setAddrValue] = useState<AddressValue>({ address: '', latitude: null, longitude: null })
+  const [isSaving, setIsSaving] = useState(false)
+
+  const load = () => {
+    setIsLoading(true)
+    getSharedAddresses().then(setAddresses).finally(() => setIsLoading(false))
+  }
+
+  useEffect(load, [])
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!label.trim() || !addrValue.address.trim()) return
+    setIsSaving(true)
+    try {
+      await createSavedAddress({
+        medical_staff_id: null,
+        label: label.trim(),
+        address: addrValue.address,
+        latitude: addrValue.latitude,
+        longitude: addrValue.longitude,
+      })
+      toast.success('Address added')
+      setLabel('')
+      setAddrValue({ address: '', latitude: null, longitude: null })
+      setShowAdd(false)
+      load()
+    } catch {
+      toast.error('Failed to add address')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleRemove = async (id: string) => {
+    try {
+      await deleteSavedAddress(id)
+      toast.success('Address removed')
+      load()
+    } catch {
+      toast.error('Failed to remove address')
+    }
+  }
+
+  return (
+    <div>
+      <p className='text-xs text-gray-500 mb-3'>
+        These addresses are available on every appointment, regardless of which medical staff is selected.
+      </p>
+
+      <div className='space-y-2 mb-4'>
+        {isLoading ? (
+          <div className='h-14 bg-gray-100 rounded-xl animate-pulse' />
+        ) : addresses.length === 0 ? (
+          <p className='text-sm text-gray-400 italic'>No shared addresses yet.</p>
+        ) : (
+          addresses.map(a => (
+            <div key={a.id} className='p-3 bg-gray-50 rounded-xl flex items-start justify-between gap-2'>
+              <div className='min-w-0'>
+                <p className='text-sm font-semibold text-gray-800 truncate'>{a.label}</p>
+                <p className='text-xs text-gray-500 mt-0.5'>{a.address}</p>
+              </div>
+              <button
+                type='button' onClick={() => handleRemove(a.id)}
+                className='shrink-0 p-1.5 text-gray-300 hover:text-red-400 transition-colors'
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {!showAdd ? (
+        <button onClick={() => setShowAdd(true)}
+          className='flex items-center gap-2 text-sm font-semibold text-nova-600 hover:text-nova-700'
+        >
+          <Plus size={16} /> Add shared address
+        </button>
+      ) : (
+        <form onSubmit={handleAdd} className='border border-gray-200 rounded-2xl p-4 space-y-3'>
+          <p className='font-semibold text-gray-700 text-sm'>New shared address</p>
+          <Field label='Label'>
+            <Input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. Starship Children's Hospital" required />
+          </Field>
+          <Field label='Address'>
+            <AddressAutocomplete
+              value={addrValue.address}
+              onChange={setAddrValue}
+              placeholder='Start typing an address…'
+              required
+            />
+          </Field>
+          <div className='flex gap-2'>
+            <button
+              type='button'
+              onClick={() => {
+                setShowAdd(false)
+                setLabel('')
+                setAddrValue({ address: '', latitude: null, longitude: null })
+              }}
+              className='flex-[3] py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600'
+            >Cancel</button>
+            <button type='submit' disabled={isSaving}
+              className='flex-[7] py-3 rounded-xl bg-nova-500 text-white text-sm font-semibold disabled:opacity-60'
+            >{isSaving ? 'Saving…' : 'Save address'}</button>
           </div>
         </form>
       )}

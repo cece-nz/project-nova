@@ -163,6 +163,16 @@ export interface MedicalStaff {
   created_at: string
 }
 
+export interface SavedAddress {
+  id: string
+  medical_staff_id: string | null
+  label: string
+  address: string
+  latitude: number | null
+  longitude: number | null
+  created_at: string
+}
+
 export interface Appointment {
   id: string
   title: string
@@ -171,6 +181,9 @@ export interface Appointment {
   duration_minutes: number | null
   mode: AppointmentMode
   location: string | null
+  address_id: string | null
+  latitude: number | null
+  longitude: number | null
   status: AppointmentStatus
   created_by: string | null
   created_at: string

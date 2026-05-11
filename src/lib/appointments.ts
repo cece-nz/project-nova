@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import type {
   MedicalStaff,
   MedicalStaffType,
+  SavedAddress,
   Appointment,
   AppointmentMode,
   AppointmentStatus,
@@ -102,6 +103,9 @@ export async function createAppointment(
     duration_minutes?: number | null
     mode: AppointmentMode
     location?: string | null
+    address_id?: string | null
+    latitude?: number | null
+    longitude?: number | null
   },
   carerId: string,
 ): Promise<Appointment> {
@@ -124,6 +128,9 @@ export async function updateAppointment(
     duration_minutes: number | null
     mode: AppointmentMode
     location: string | null
+    address_id: string | null
+    latitude: number | null
+    longitude: number | null
     status: AppointmentStatus
   }>,
 ): Promise<Appointment> {
@@ -285,5 +292,61 @@ export async function toggleAppointmentAction(
 
 export async function deleteAppointmentAction(id: string): Promise<void> {
   const { error } = await supabase.from('appointment_actions').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ============================================================
+// SAVED ADDRESSES
+// medical_staff_id = null → shared/global, available on any appointment
+// ============================================================
+
+export async function getSharedAddresses(): Promise<SavedAddress[]> {
+  const { data, error } = await supabase
+    .from('saved_addresses')
+    .select('*')
+    .is('medical_staff_id', null)
+    .order('created_at')
+  if (error) throw error
+  return (data || []) as SavedAddress[]
+}
+
+export async function getStaffAddresses(staffId: string): Promise<SavedAddress[]> {
+  const { data, error } = await supabase
+    .from('saved_addresses')
+    .select('*')
+    .eq('medical_staff_id', staffId)
+    .order('created_at')
+  if (error) throw error
+  return (data || []) as SavedAddress[]
+}
+
+/** Returns shared addresses, plus addresses for the given staff if provided. */
+export async function getAddressesForAppointment(staffId: string | null): Promise<SavedAddress[]> {
+  const [shared, staff] = await Promise.all([
+    getSharedAddresses(),
+    staffId ? getStaffAddresses(staffId) : Promise.resolve([] as SavedAddress[]),
+  ])
+  return [...shared, ...staff]
+}
+
+export async function createSavedAddress(addr: {
+  medical_staff_id: string | null
+  label: string
+  address: string
+  latitude: number | null
+  longitude: number | null
+}): Promise<SavedAddress> {
+  const { data, error } = await supabase
+    .from('saved_addresses')
+    .insert(addr)
+    .select()
+    .maybeSingle()
+  if (error) throw error
+  if (!data) throw new Error('Address insert returned no row')
+  return data as SavedAddress
+}
+
+export async function deleteSavedAddress(id: string): Promise<void> {
+  const { error } = await supabase.from('saved_addresses').delete().eq('id', id)
   if (error) throw error
 }
