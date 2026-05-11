@@ -172,7 +172,9 @@ export function Dashboard() {
           </div>
         )}
 
-        {activeTab === 'summary' && <DailySummaryView />}
+        {activeTab === 'summary' && (
+          <DailySummaryView onEdit={can.deleteEntry(carer?.role) ? setEditEntry : undefined} />
+        )}
         {activeTab === 'appointments' && <AppointmentList />}
         {activeTab === 'admin' && can.manageAdmin(carer?.role) && <AdminPanel />}
       </main>

@@ -394,6 +394,42 @@ export async function getLastMedication(): Promise<MedicationLog | null> {
   return data as MedicationLog | null
 }
 
+export async function getEntriesForRange(from?: Date): Promise<LogEntry[]> {
+  const start = from ? startOfDay(from).toISOString() : undefined
+
+  const [meds, fluids, outputs, notes] = await Promise.all([
+    (() => {
+      let q = supabase.from('medication_logs').select('*, carer:carer_id(id, name, color)').order('given_at', { ascending: false })
+      if (start) q = q.gte('given_at', start)
+      return q
+    })(),
+    (() => {
+      let q = supabase.from('fluid_logs').select('*, carer:carer_id(id, name, color)').order('given_at', { ascending: false })
+      if (start) q = q.gte('given_at', start)
+      return q
+    })(),
+    (() => {
+      let q = supabase.from('output_logs').select('*, carer:carer_id(id, name, color)').order('logged_at', { ascending: false })
+      if (start) q = q.gte('logged_at', start)
+      return q
+    })(),
+    (() => {
+      let q = supabase.from('general_notes').select('*, carer:carer_id(id, name, color)').order('noted_at', { ascending: false })
+      if (start) q = q.gte('noted_at', start)
+      return q
+    })(),
+  ])
+
+  const entries: LogEntry[] = [
+    ...(meds.data || []).map((d): LogEntry => ({ type: 'medication', data: d as MedicationLog, time: d.given_at })),
+    ...(fluids.data || []).map((d): LogEntry => ({ type: 'fluid', data: d as FluidLog, time: d.given_at })),
+    ...(outputs.data || []).map((d): LogEntry => ({ type: 'output', data: d as OutputLog, time: d.logged_at })),
+    ...(notes.data || []).map((d): LogEntry => ({ type: 'note', data: d as GeneralNote, time: d.noted_at })),
+  ]
+
+  return entries.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+}
+
 export async function deleteEntry(
   type: 'medication_logs' | 'fluid_logs' | 'output_logs' | 'general_notes',
   id: string
