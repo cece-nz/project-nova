@@ -80,7 +80,7 @@ export function Dashboard() {
   const tabs = [
     { id: 'today' as Tab, label: 'Today', icon: LayoutList },
     { id: 'summary' as Tab, label: 'Summary', icon: BarChart2 },
-    { id: 'appointments' as Tab, label: 'Appts', icon: CalendarDays },
+    ...(can.viewAppointments(carer?.role) ? [{ id: 'appointments' as Tab, label: 'Appts', icon: CalendarDays }] : []),
     ...(can.manageAdmin(carer?.role) ? [{ id: 'admin' as Tab, label: 'Admin', icon: Settings }] : []),
   ]
 
@@ -150,7 +150,9 @@ export function Dashboard() {
               onFluidClick={() => goToSummary({ subTab: 'inputs', typeFilter: 'fluid' })}
               onMedClick={() => goToSummary({ subTab: 'inputs', typeFilter: 'medication' })}
             />
-            <AppointmentsWidget onClick={() => setActiveTab('appointments')} />
+            {can.viewAppointments(carer?.role) && (
+              <AppointmentsWidget onClick={() => setActiveTab('appointments')} />
+            )}
             <div>
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Today's log</h2>
               <Timeline
@@ -172,7 +174,7 @@ export function Dashboard() {
             onEdit={can.deleteEntry(carer?.role) ? setEditEntry : undefined}
           />
         )}
-        {activeTab === 'appointments' && <AppointmentList />}
+        {activeTab === 'appointments' && can.viewAppointments(carer?.role) && <AppointmentList />}
         {activeTab === 'admin' && can.manageAdmin(carer?.role) && <AdminPanel />}
       </main>
 

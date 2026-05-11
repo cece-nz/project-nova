@@ -34,6 +34,7 @@ export function AppointmentDetail({ appointment: initial, onBack, onUpdated }: P
 
   const isAdmin = can.manageAppointments(carer?.role)
   const canDetail = can.viewAppointmentDetail(carer?.role)
+  const canPersonNotes = can.viewPersonNotes(carer?.role)
 
   const handleUpdated = (updated: Appointment) => {
     setAppt(updated)
@@ -63,7 +64,9 @@ export function AppointmentDetail({ appointment: initial, onBack, onUpdated }: P
     { id: 'actions', label: 'Actions', icon: CheckSquare },
   ]
 
-  const visibleTabs = canDetail ? tabs : tabs.filter(t => t.id === 'shared' || t.id === 'documents')
+  const visibleTabs = canDetail
+    ? tabs.filter(t => t.id !== 'person' || canPersonNotes)
+    : tabs.filter(t => t.id === 'shared' || t.id === 'documents')
 
   return (
     <div className='space-y-4'>
@@ -136,11 +139,19 @@ export function AppointmentDetail({ appointment: initial, onBack, onUpdated }: P
       </div>
 
       {/* Tab content */}
-      {(tab === 'shared' || tab === 'person') && (
+      {tab === 'shared' && (
         <NotesSection
           appointmentId={appt.id}
-          noteType={tab}
+          noteType="shared"
           canAdd={canDetail}
+          canDelete={isAdmin}
+        />
+      )}
+      {tab === 'person' && canPersonNotes && (
+        <NotesSection
+          appointmentId={appt.id}
+          noteType="person"
+          canAdd={canPersonNotes}
           canDelete={isAdmin}
         />
       )}

@@ -31,3 +31,21 @@ describe('can.editDailySummary', () => {
   it('blocks medical', () => expect(can.editDailySummary('medical')).toBe(false))
   it('blocks helper', () => expect(can.editDailySummary('helper')).toBe(false))
 })
+
+describe('can.viewAppointments', () => {
+  it('allows admin', () => expect(can.viewAppointments('admin')).toBe(true))
+  it('allows medical', () => expect(can.viewAppointments('medical')).toBe(true))
+  it('blocks helper', () => expect(can.viewAppointments('helper')).toBe(false))
+})
+
+describe('can.viewPersonNotes', () => {
+  it('allows admin', () => expect(can.viewPersonNotes('admin')).toBe(true))
+  it('blocks medical', () => expect(can.viewPersonNotes('medical')).toBe(false))
+  it('blocks helper', () => expect(can.viewPersonNotes('helper')).toBe(false))
+})
+
+describe('can.exportData', () => {
+  it('allows admin', () => expect(can.exportData('admin')).toBe(true))
+  it('allows medical', () => expect(can.exportData('medical')).toBe(true))
+  it('blocks helper', () => expect(can.exportData('helper')).toBe(false))
+})

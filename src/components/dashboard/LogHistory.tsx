@@ -116,6 +116,7 @@ export function LogHistory({ onEdit, initialTypeFilter }: LogHistoryProps) {
 
   const groups = groupByDate(filtered)
   const canDelete = can.deleteEntry(carer?.role)
+  const canExport = can.exportData(carer?.role)
 
   return (
     <div className="space-y-4">
@@ -154,7 +155,7 @@ export function LogHistory({ onEdit, initialTypeFilter }: LogHistoryProps) {
       </div>
 
       {/* Export */}
-      {!isLoading && filtered.length > 0 && (
+      {!isLoading && filtered.length > 0 && canExport && (
         <div className="flex justify-end">
           <button
             onClick={() => exportToCSV(filtered)}
