@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getMedications, createMedication } from '../../lib/db';
-import { getAllCarers, createCarer, updateCarerPin } from '../../lib/auth';
+import { getAllCarers, createCarer, updateCarerPin, deleteCarer } from '../../lib/auth';
 import { getMedicalStaff, createMedicalStaff, deactivateMedicalStaff } from '../../lib/appointments';
 import { CARER_COLORS } from '../../utils';
 import { ROLE_LABEL } from '../../lib/permissions';
+import { useAuth } from '../../hooks/useAuth';
 import { Field, Input } from '../ui/FormElements';
 import { Plus, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import type { Medication, CarerRole, MedicalStaff, MedicalStaffType } from '../../types';
@@ -81,10 +82,13 @@ function AdminSection({
 
 type CarerAdminRow = { id: string; name: string; color: string; role: string };
 
-function CarerPinCard({ carer }: { carer: CarerAdminRow }) {
+function CarerPinCard({ carer, onDeleted }: { carer: CarerAdminRow; onDeleted: () => void }) {
+  const { carer: self } = useAuth();
   const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const isSelf = self?.id === carer.id;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +109,20 @@ function CarerPinCard({ carer }: { carer: CarerAdminRow }) {
     }
   };
 
+  const handleDelete = async () => {
+    setIsLoading(true);
+    try {
+      await deleteCarer(carer.id);
+      toast.success(`${carer.name} removed`);
+      onDeleted();
+    } catch {
+      toast.error('Failed to remove user');
+    } finally {
+      setIsLoading(false);
+      setConfirming(false);
+    }
+  };
+
   return (
     <div className='p-3 bg-gray-50 rounded-xl'>
       <div className='flex items-center justify-between gap-2'>
@@ -118,22 +136,60 @@ function CarerPinCard({ carer }: { carer: CarerAdminRow }) {
           <div className='min-w-0'>
             <p className='text-sm font-semibold text-gray-800 truncate'>
               {carer.name}
+              {isSelf && <span className='ml-1.5 text-xs font-normal text-gray-400'>(you)</span>}
             </p>
             <p className='text-xs text-gray-400'>
               {ROLE_LABEL[carer.role as CarerRole] ?? carer.role}
             </p>
           </div>
         </div>
-        {!editing && (
-          <button
-            type='button'
-            onClick={() => setEditing(true)}
-            className='shrink-0 text-sm font-semibold text-nova-600 hover:text-nova-700'
-          >
-            Change PIN
-          </button>
+        {!editing && !confirming && (
+          <div className='flex items-center gap-2 shrink-0'>
+            <button
+              type='button'
+              onClick={() => setEditing(true)}
+              className='text-sm font-semibold text-nova-600 hover:text-nova-700'
+            >
+              Change PIN
+            </button>
+            {!isSelf && (
+              <button
+                type='button'
+                onClick={() => setConfirming(true)}
+                className='p-1.5 text-gray-300 hover:text-red-400 transition-colors'
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
         )}
       </div>
+
+      {confirming && (
+        <div className='mt-3 pt-3 border-t border-gray-200/80'>
+          <p className='text-sm text-gray-700 mb-3'>
+            Remove <strong>{carer.name}</strong>? They won't be able to log in.
+          </p>
+          <div className='flex gap-2'>
+            <button
+              type='button'
+              onClick={() => setConfirming(false)}
+              className='flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600'
+            >
+              Cancel
+            </button>
+            <button
+              type='button'
+              onClick={handleDelete}
+              disabled={isLoading}
+              className='flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold disabled:opacity-60'
+            >
+              {isLoading ? 'Removing...' : 'Remove'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {editing && (
         <form
           onSubmit={handleSubmit}
@@ -154,10 +210,7 @@ function CarerPinCard({ carer }: { carer: CarerAdminRow }) {
           <div className='flex gap-2'>
             <button
               type='button'
-              onClick={() => {
-                setEditing(false);
-                setNewPin('');
-              }}
+              onClick={() => { setEditing(false); setNewPin(''); }}
               className='flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600'
             >
               Cancel
@@ -215,7 +268,7 @@ function CarerAdmin() {
     <div>
       <div className='space-y-2 mb-4'>
         {carers.map((c) => (
-          <CarerPinCard key={c.id} carer={c} />
+          <CarerPinCard key={c.id} carer={c} onDeleted={() => getAllCarers().then(setCarers)} />
         ))}
       </div>
 

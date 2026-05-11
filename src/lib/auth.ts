@@ -90,3 +90,31 @@ export async function updateCarerPin(
 
   if (error) throw error;
 }
+
+export async function loginWithPinOnly(pin: string): Promise<Carer> {
+  const { data: carers, error } = await supabase
+    .from('carers')
+    .select('*')
+    .eq('is_active', true);
+
+  if (error) throw new Error('Failed to connect to database');
+  if (!carers || carers.length === 0) throw new Error('No users found');
+
+  const matches: Carer[] = [];
+  for (const carer of carers as Carer[]) {
+    const valid = await bcrypt.compare(pin, carer.pin_hash);
+    if (valid) matches.push(carer);
+  }
+
+  if (matches.length === 0) throw new Error('Incorrect PIN');
+  if (matches.length > 1) throw new Error('Multiple users share this PIN — contact an admin');
+  return matches[0];
+}
+
+export async function deleteCarer(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('carers')
+    .update({ is_active: false })
+    .eq('id', id);
+  if (error) throw error;
+}
