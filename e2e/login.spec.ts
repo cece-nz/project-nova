@@ -8,9 +8,10 @@ test.describe('Login screen', () => {
   test('shows PIN pad on load', async ({ page }) => {
     await expect(page.getByText('Nova Care')).toBeVisible()
     await expect(page.getByText('Enter your PIN')).toBeVisible()
-    // All 9 digit buttons + 0 + backspace
-    const digitButtons = page.locator('button').filter({ hasNotText: /Enter|Log|History/ })
-    await expect(digitButtons).toHaveCount.greaterThan(9)
+    // All 10 digit buttons should be visible
+    for (const digit of ['1','2','3','4','5','6','7','8','9','0']) {
+      await expect(page.getByRole('button', { name: digit, exact: true })).toBeVisible()
+    }
   })
 
   test('PIN dots fill as digits are entered', async ({ page }) => {
