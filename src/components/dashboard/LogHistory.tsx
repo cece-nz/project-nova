@@ -4,7 +4,48 @@ import { Timeline } from './Timeline'
 import { useAuth } from '../../hooks/useAuth'
 import { can } from '../../lib/permissions'
 import { format, subDays, startOfDay } from 'date-fns'
-import type { LogEntry } from '../../types'
+import { Download } from 'lucide-react'
+import type { LogEntry, MedicationLog, FluidLog, OutputLog, GeneralNote } from '../../types'
+
+function exportToCSV(entries: LogEntry[]) {
+  const rows: string[][] = [
+    ['Date', 'Time', 'Type', 'Detail', 'Amount/Dose', 'Notes', 'Logged by'],
+  ]
+
+  for (const e of entries) {
+    const date = format(new Date(e.time), 'yyyy-MM-dd')
+    const time = format(new Date(e.time), 'HH:mm')
+    const carer = (e.data.carer as { name: string } | undefined)?.name ?? ''
+
+    if (e.type === 'medication') {
+      const d = e.data as MedicationLog
+      rows.push([date, time, 'Medication', d.medication_name, d.dose_given, d.notes ?? '', carer])
+    } else if (e.type === 'fluid') {
+      const d = e.data as FluidLog
+      rows.push([date, time, 'Fluid', d.fluid_type, `${d.amount_ml}ml`, d.notes ?? '', carer])
+    } else if (e.type === 'output') {
+      const d = e.data as OutputLog
+      const detail = [
+        d.catheter_ml ? `Cathy ${d.catheter_ml}ml` : '',
+        d.potty_ml ? `Potty ${d.potty_ml}ml` : '',
+        d.nappy_was_dry ? 'Nappy dry' : d.nappy_weight_g ? `Nappy ${d.nappy_weight_g}g` : '',
+      ].filter(Boolean).join(', ')
+      rows.push([date, time, 'Output', detail, '', d.notes ?? '', carer])
+    } else if (e.type === 'note') {
+      const d = e.data as GeneralNote
+      rows.push([date, time, 'Note', d.category, d.content, '', carer])
+    }
+  }
+
+  const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `nova-care-log-${format(new Date(), 'yyyy-MM-dd')}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 type Period = 'today' | '7d' | '30d' | 'all'
 type TypeFilter = 'all' | 'medication' | 'fluid' | 'output' | 'note'
@@ -111,6 +152,18 @@ export function LogHistory({ onEdit, initialTypeFilter }: LogHistoryProps) {
           </button>
         ))}
       </div>
+
+      {/* Export */}
+      {!isLoading && filtered.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => exportToCSV(filtered)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+          >
+            <Download size={12} /> Export CSV
+          </button>
+        </div>
+      )}
 
       {/* Results */}
       {isLoading ? (

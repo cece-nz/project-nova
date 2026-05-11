@@ -443,3 +443,54 @@ export async function deleteEntry(
   const { error } = await supabase.from(type).delete().eq('id', id)
   if (error) throw error
 }
+
+export interface DailyPoint {
+  date: string       // 'yyyy-MM-dd'
+  label: string      // 'Mon 5 May'
+  fluidMl: number
+  cathyMl: number
+  pottyMl: number
+  nappyMl: number
+  meds: number
+}
+
+export async function getDailyTrends(days: number): Promise<DailyPoint[]> {
+  const from = startOfDay(new Date(Date.now() - (days - 1) * 86400000))
+  const start = from.toISOString()
+
+  const [fluids, outputs, meds] = await Promise.all([
+    supabase.from('fluid_logs').select('given_at, amount_ml').gte('given_at', start),
+    supabase.from('output_logs').select('logged_at, catheter_ml, potty_ml, nappy_weight_g, nappy_was_dry').gte('logged_at', start),
+    supabase.from('medication_logs').select('given_at').gte('given_at', start),
+  ])
+
+  const points = new Map<string, DailyPoint>()
+
+  for (let i = 0; i < days; i++) {
+    const d = new Date(from.getTime() + i * 86400000)
+    const key = format(d, 'yyyy-MM-dd')
+    points.set(key, { date: key, label: format(d, 'EEE d MMM'), fluidMl: 0, cathyMl: 0, pottyMl: 0, nappyMl: 0, meds: 0 })
+  }
+
+  for (const f of fluids.data || []) {
+    const key = f.given_at.slice(0, 10)
+    const p = points.get(key)
+    if (p) p.fluidMl += f.amount_ml || 0
+  }
+  for (const o of outputs.data || []) {
+    const key = o.logged_at.slice(0, 10)
+    const p = points.get(key)
+    if (p) {
+      p.cathyMl += o.catheter_ml || 0
+      p.pottyMl += o.potty_ml || 0
+      if (!o.nappy_was_dry && o.nappy_weight_g) p.nappyMl += Math.max(0, o.nappy_weight_g - 50)
+    }
+  }
+  for (const m of meds.data || []) {
+    const key = m.given_at.slice(0, 10)
+    const p = points.get(key)
+    if (p) p.meds += 1
+  }
+
+  return Array.from(points.values())
+}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { getDailySummary, saveDailySummary } from '../../lib/db'
 import { CatheterBlocksView } from './CatheterBlocksView'
 import { LogHistory } from './LogHistory'
+import { TrendsView } from './TrendsView'
 import { useAuth } from '../../hooks/useAuth'
 import { can } from '../../lib/permissions'
 import { format } from 'date-fns'
@@ -9,7 +10,7 @@ import { Textarea, SubmitButton } from '../ui/FormElements'
 import toast from 'react-hot-toast'
 import type { DailySummary, LogEntry } from '../../types'
 
-type SubTab = 'blocks' | 'inputs'
+type SubTab = 'blocks' | 'inputs' | 'trends'
 
 interface DailySummaryViewProps {
   onEdit?: (entry: LogEntry) => void
@@ -49,27 +50,24 @@ export function DailySummaryView({ onEdit, initialSubTab, initialTypeFilter }: D
   return (
     <div className="space-y-4">
       {/* Sub-tab pills */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setSubTab('blocks')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-            subTab === 'blocks'
-              ? 'bg-nova-100 text-nova-700'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-          }`}
-        >
-          🩺 Blocks
-        </button>
-        <button
-          onClick={() => setSubTab('inputs')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-            subTab === 'inputs'
-              ? 'bg-nova-100 text-nova-700'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-          }`}
-        >
-          📋 All inputs
-        </button>
+      <div className="flex gap-2 flex-wrap">
+        {([
+          { id: 'blocks', label: '🩺 Blocks' },
+          { id: 'inputs', label: '📋 All inputs' },
+          { id: 'trends', label: '📈 Trends' },
+        ] as { id: SubTab; label: string }[]).map(t => (
+          <button
+            key={t.id}
+            onClick={() => setSubTab(t.id)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              subTab === t.id
+                ? 'bg-nova-100 text-nova-700'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {subTab === 'blocks' && (
@@ -117,6 +115,8 @@ export function DailySummaryView({ onEdit, initialSubTab, initialTypeFilter }: D
       {subTab === 'inputs' && (
         <LogHistory onEdit={onEdit} initialTypeFilter={initialTypeFilter} />
       )}
+
+      {subTab === 'trends' && <TrendsView />}
     </div>
   )
 }
