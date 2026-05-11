@@ -1,12 +1,15 @@
-import { Droplets, Pill, Activity } from 'lucide-react'
+import { Pill, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
 import type { DailyStats } from '../../types'
 
 interface StatsBarProps {
   stats: DailyStats | null
   isLoading: boolean
+  onOutputClick?: () => void
+  onFluidClick?: () => void
+  onMedClick?: () => void
 }
 
-export function StatsBar({ stats, isLoading }: StatsBarProps) {
+export function StatsBar({ stats, isLoading, onOutputClick, onFluidClick, onMedClick }: StatsBarProps) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-3 gap-3">
@@ -19,28 +22,31 @@ export function StatsBar({ stats, isLoading }: StatsBarProps) {
 
   const cards = [
     {
+      label: 'Cathy out',
+      value: stats ? `${stats.totalCatheterMl}ml` : '—',
+      sub: stats ? `Potty: ${stats.totalPottyMl}ml` : '',
+      icon: ArrowUpFromLine,
+      color: 'bg-emerald-50 text-emerald-700',
+      iconColor: 'text-emerald-400',
+      onClick: onOutputClick,
+    },
+    {
       label: 'Fluid in',
       value: stats ? `${stats.totalFluidMl}ml` : '—',
       sub: stats ? `${stats.fluidEntries} entries` : '',
-      icon: Droplets,
+      icon: ArrowDownToLine,
       color: 'bg-blue-50 text-blue-600',
       iconColor: 'text-blue-400',
+      onClick: onFluidClick,
     },
     {
-      label: 'Catheter out',
-      value: stats ? `${stats.totalCatheterMl}ml` : '—',
-      sub: stats ? `Potty: ${stats.totalPottyMl}ml` : '',
-      icon: Activity,
-      color: 'bg-emerald-50 text-emerald-700',
-      iconColor: 'text-emerald-400',
-    },
-    {
-      label: 'Medications',
+      label: 'Meds',
       value: stats ? `${stats.medicationsGiven}` : '—',
       sub: 'given today',
       icon: Pill,
       color: 'bg-nova-50 text-nova-700',
       iconColor: 'text-nova-400',
+      onClick: onMedClick,
     },
   ]
 
@@ -49,12 +55,17 @@ export function StatsBar({ stats, isLoading }: StatsBarProps) {
       {cards.map(card => {
         const Icon = card.icon
         return (
-          <div key={card.label} className={`rounded-2xl p-3 ${card.color}`}>
+          <button
+            key={card.label}
+            onClick={card.onClick}
+            disabled={!card.onClick}
+            className={`rounded-2xl p-3 text-left transition-all ${card.color} ${card.onClick ? 'active:scale-95 hover:brightness-95 cursor-pointer' : 'cursor-default'}`}
+          >
             <Icon size={16} className={`${card.iconColor} mb-2`} />
             <p className="text-lg font-bold leading-none">{card.value}</p>
             <p className="text-xs mt-1 opacity-70">{card.label}</p>
             {card.sub && <p className="text-xs opacity-50">{card.sub}</p>}
-          </div>
+          </button>
         )
       })}
     </div>

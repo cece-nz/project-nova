@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { CountdownCard } from './CountdownCard'
 import { LastMedCard } from './LastMedCard'
-import { UpcomingAppointmentsStrip } from './UpcomingAppointmentsStrip'
+import { AppointmentsWidget } from './AppointmentsWidget'
 import { StatsBar } from './StatsBar'
 import { Timeline } from './Timeline'
 import { ActionBar, type LogType } from '../layout/ActionBar'
@@ -22,6 +22,11 @@ import type { LogEntry, DailyStats, MedicationLog, FluidLog, OutputLog, GeneralN
 
 type Tab = 'today' | 'summary' | 'appointments' | 'admin'
 
+interface SummaryNav {
+  subTab: 'blocks' | 'inputs'
+  typeFilter?: string
+}
+
 const MODAL_TITLES: Record<LogType, string> = {
   medication: '💊 Log Medication',
   fluid: '💧 Log Fluid',
@@ -39,6 +44,7 @@ const EDIT_TITLES: Record<LogType, string> = {
 export function Dashboard() {
   const { carer, logout } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('today')
+  const [summaryNav, setSummaryNav] = useState<SummaryNav | null>(null)
   const [openModal, setOpenModal] = useState<LogType | null>(null)
   const [editEntry, setEditEntry] = useState<LogEntry | null>(null)
   const [entries, setEntries] = useState<LogEntry[]>([])
@@ -51,39 +57,22 @@ export function Dashboard() {
     setRefreshKey(k => k + 1)
     setIsLoadingEntries(true)
     setIsLoadingStats(true)
-
-    getTodayEntries()
-      .then(setEntries)
-      .finally(() => setIsLoadingEntries(false))
-
-    getDailyStats()
-      .then(setStats)
-      .finally(() => setIsLoadingStats(false))
+    getTodayEntries().then(setEntries).finally(() => setIsLoadingEntries(false))
+    getDailyStats().then(setStats).finally(() => setIsLoadingStats(false))
   }, [])
 
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  useEffect(() => { refresh() }, [refresh])
 
-  const handleLogSuccess = () => {
-    setOpenModal(null)
-    refresh()
+  const goToSummary = (nav: SummaryNav) => {
+    setSummaryNav(nav)
+    setActiveTab('summary')
   }
 
-  const handleEditSuccess = () => {
-    setEditEntry(null)
-    refresh()
-  }
+  const handleLogSuccess = () => { setOpenModal(null); refresh() }
+  const handleEditSuccess = () => { setEditEntry(null); refresh() }
+  const handleModalClose = () => { setOpenModal(null); setEditEntry(null) }
 
-  const handleModalClose = () => {
-    setOpenModal(null)
-    setEditEntry(null)
-  }
-
-  const modalType: LogType | null = editEntry
-    ? (editEntry.type as LogType)
-    : openModal
-
+  const modalType: LogType | null = editEntry ? (editEntry.type as LogType) : openModal
   const modalTitle = editEntry
     ? EDIT_TITLES[editEntry.type as LogType]
     : (openModal ? MODAL_TITLES[openModal] : '')
@@ -107,7 +96,6 @@ export function Dashboard() {
               <p className="text-xs text-gray-400">{format(new Date(), 'EEE d MMM')}</p>
             </div>
           </div>
-
           <div className="flex items-center gap-3">
             {carer && (
               <div
@@ -117,28 +105,21 @@ export function Dashboard() {
                 {carer.name[0].toUpperCase()}
               </div>
             )}
-            <button
-              onClick={logout}
-              className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-              title="Log out"
-            >
+            <button onClick={logout} className="p-2 text-gray-400 hover:text-gray-600 transition-colors" title="Log out">
               <LogOut size={18} />
             </button>
           </div>
         </div>
 
-        {/* Tabs — scrollable on mobile */}
         <div className="max-w-lg mx-auto px-4 flex gap-1 pb-3 overflow-x-auto no-scrollbar">
           {tabs.map(tab => {
             const Icon = tab.icon
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setActiveTab(tab.id); if (tab.id !== 'summary') setSummaryNav(null) }}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'bg-nova-100 text-nova-700'
-                    : 'text-gray-500 hover:text-gray-700'
+                  activeTab === tab.id ? 'bg-nova-100 text-nova-700' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <Icon size={14} />
@@ -153,14 +134,25 @@ export function Dashboard() {
       <main className="max-w-lg mx-auto px-4 pt-4 pb-36">
         {activeTab === 'today' && (
           <div className="space-y-4">
-            <CountdownCard refreshKey={refreshKey} onLogOutput={() => setOpenModal('output')} />
-            <LastMedCard refreshKey={refreshKey} />
-            <StatsBar stats={stats} isLoading={isLoadingStats} />
-            <UpcomingAppointmentsStrip />
+            <CountdownCard
+              refreshKey={refreshKey}
+              onLogOutput={() => setOpenModal('output')}
+              onViewHistory={() => goToSummary({ subTab: 'inputs', typeFilter: 'output' })}
+            />
+            <LastMedCard
+              refreshKey={refreshKey}
+              onViewHistory={() => goToSummary({ subTab: 'inputs', typeFilter: 'medication' })}
+            />
+            <StatsBar
+              stats={stats}
+              isLoading={isLoadingStats}
+              onOutputClick={() => goToSummary({ subTab: 'inputs', typeFilter: 'output' })}
+              onFluidClick={() => goToSummary({ subTab: 'inputs', typeFilter: 'fluid' })}
+              onMedClick={() => goToSummary({ subTab: 'inputs', typeFilter: 'medication' })}
+            />
+            <AppointmentsWidget onClick={() => setActiveTab('appointments')} />
             <div>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                Today's log
-              </h2>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Today's log</h2>
               <Timeline
                 entries={entries}
                 isLoading={isLoadingEntries}
@@ -173,23 +165,22 @@ export function Dashboard() {
         )}
 
         {activeTab === 'summary' && (
-          <DailySummaryView onEdit={can.deleteEntry(carer?.role) ? setEditEntry : undefined} />
+          <DailySummaryView
+            key={summaryNav ? `${summaryNav.subTab}-${summaryNav.typeFilter}` : 'default'}
+            initialSubTab={summaryNav?.subTab}
+            initialTypeFilter={summaryNav?.typeFilter}
+            onEdit={can.deleteEntry(carer?.role) ? setEditEntry : undefined}
+          />
         )}
         {activeTab === 'appointments' && <AppointmentList />}
         {activeTab === 'admin' && can.manageAdmin(carer?.role) && <AdminPanel />}
       </main>
 
-      {/* Action bar — hidden for medical (read-only) */}
       {activeTab === 'today' && can.logEntry(carer?.role) && (
         <ActionBar onLog={setOpenModal} />
       )}
 
-      {/* Modals — new entry or edit */}
-      <Modal
-        isOpen={modalType !== null}
-        onClose={handleModalClose}
-        title={modalTitle}
-      >
+      <Modal isOpen={modalType !== null} onClose={handleModalClose} title={modalTitle}>
         {modalType === 'medication' && (
           <MedicationForm
             onSuccess={editEntry ? handleEditSuccess : handleLogSuccess}

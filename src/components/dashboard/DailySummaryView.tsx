@@ -13,11 +13,13 @@ type SubTab = 'blocks' | 'inputs'
 
 interface DailySummaryViewProps {
   onEdit?: (entry: LogEntry) => void
+  initialSubTab?: SubTab
+  initialTypeFilter?: string
 }
 
-export function DailySummaryView({ onEdit }: DailySummaryViewProps) {
+export function DailySummaryView({ onEdit, initialSubTab, initialTypeFilter }: DailySummaryViewProps) {
   const { carer } = useAuth()
-  const [subTab, setSubTab] = useState<SubTab>('blocks')
+  const [subTab, setSubTab] = useState<SubTab>(initialSubTab ?? 'blocks')
   const [summary, setSummary] = useState<DailySummary | null>(null)
   const [content, setContent] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -113,7 +115,7 @@ export function DailySummaryView({ onEdit }: DailySummaryViewProps) {
       )}
 
       {subTab === 'inputs' && (
-        <LogHistory onEdit={onEdit} />
+        <LogHistory onEdit={onEdit} initialTypeFilter={initialTypeFilter} />
       )}
     </div>
   )

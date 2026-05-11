@@ -145,7 +145,7 @@ function getEntryConfig(entry: LogEntry) {
       const parts: string[] = []
       if (entry.data.nappy_was_dry) parts.push('Nappy dry')
       else if (entry.data.nappy_weight_g) parts.push(`Nappy ${entry.data.nappy_weight_g}g`)
-      if (entry.data.catheter_ml) parts.push(`Catheter ${entry.data.catheter_ml}ml`)
+      if (entry.data.catheter_ml) parts.push(`Cathy ${entry.data.catheter_ml}ml`)
       if (entry.data.potty_ml) parts.push(`Potty ${entry.data.potty_ml}ml`)
       return {
         Icon: Activity,

@@ -1,4 +1,4 @@
-import { Pill, Droplets, Activity, FileText } from 'lucide-react'
+import { Pill, ArrowDownToLine, ArrowUpFromLine, FileText } from 'lucide-react'
 import { useState } from 'react'
 
 export type LogType = 'medication' | 'fluid' | 'output' | 'note'
@@ -14,20 +14,20 @@ export function ActionBar({ onLog }: ActionBarProps) {
     {
       type: 'output' as LogType,
       label: 'Output',
-      icon: Activity,
+      icon: ArrowUpFromLine,
       color: 'bg-emerald-500 text-white',
       ring: 'ring-emerald-200',
     },
     {
       type: 'fluid' as LogType,
       label: 'Fluid',
-      icon: Droplets,
+      icon: ArrowDownToLine,
       color: 'bg-blue-500 text-white',
       ring: 'ring-blue-200',
     },
     {
       type: 'medication' as LogType,
-      label: 'Medication',
+      label: 'Meds',
       icon: Pill,
       color: 'bg-purple-500 text-white',
       ring: 'ring-purple-200',

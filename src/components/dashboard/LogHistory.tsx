@@ -47,12 +47,15 @@ function groupByDate(entries: LogEntry[]): { date: string; label: string; entrie
 
 interface LogHistoryProps {
   onEdit?: (entry: LogEntry) => void
+  initialTypeFilter?: string
 }
 
-export function LogHistory({ onEdit }: LogHistoryProps) {
+export function LogHistory({ onEdit, initialTypeFilter }: LogHistoryProps) {
   const { carer } = useAuth()
   const [period, setPeriod] = useState<Period>('7d')
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(
+    (initialTypeFilter as TypeFilter | undefined) ?? 'all'
+  )
   const [allEntries, setAllEntries] = useState<LogEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)

@@ -4,7 +4,7 @@ import { differenceInMinutes, differenceInHours, format } from 'date-fns'
 import { Pill } from 'lucide-react'
 import type { MedicationLog } from '../../types'
 
-export function LastMedCard({ refreshKey }: { refreshKey: number }) {
+export function LastMedCard({ refreshKey, onViewHistory }: { refreshKey: number; onViewHistory?: () => void }) {
   const [lastMed, setLastMed] = useState<MedicationLog | null | undefined>(undefined)
 
   useEffect(() => {
@@ -45,7 +45,11 @@ export function LastMedCard({ refreshKey }: { refreshKey: number }) {
       : `${hours}h ${minutes}m ago`
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3">
+    <button
+      onClick={onViewHistory}
+      disabled={!onViewHistory}
+      className={`w-full bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 text-left ${onViewHistory ? 'active:scale-95 transition-all hover:border-nova-200' : ''}`}
+    >
       <div className="w-10 h-10 rounded-xl bg-nova-50 flex items-center justify-center flex-shrink-0">
         <Pill size={18} className="text-nova-500" />
       </div>
@@ -60,6 +64,6 @@ export function LastMedCard({ refreshKey }: { refreshKey: number }) {
         <p className="text-lg font-bold text-nova-600 leading-tight">{timeLabel}</p>
         <p className="text-xs text-gray-400">{format(givenAt, 'h:mm a')}</p>
       </div>
-    </div>
+    </button>
   )
 }

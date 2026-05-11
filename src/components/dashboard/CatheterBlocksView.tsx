@@ -95,8 +95,8 @@ export function CatheterBlocksView() {
     return (
       <div className="bg-gray-50 rounded-2xl p-6 text-center text-gray-400">
         <p className="text-2xl mb-2">🩺</p>
-        <p className="text-sm">No catheter outputs logged yet.</p>
-        <p className="text-xs mt-1">Each catheter log starts a new block.</p>
+        <p className="text-sm">No Cathy outputs logged yet.</p>
+        <p className="text-xs mt-1">Each Cathy log starts a new block.</p>
       </div>
     )
   }
@@ -106,7 +106,7 @@ export function CatheterBlocksView() {
       <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
         <Info size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
         <p className="text-xs text-blue-600">
-          Each block starts when catheter output is logged. Nappy tare ({NAPPY_TARE_G}g) subtracted from gross weight.
+          Each block starts when Cathy output is logged. Nappy tare ({NAPPY_TARE_G}g) subtracted from gross weight.
         </p>
       </div>
 
@@ -135,7 +135,7 @@ export function CatheterBlocksView() {
                       {block.isCurrent ? 'Current block' : format(start, 'd MMM')}
                     </span>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      Catheter emptied {format(start, 'h:mm a')} · {duration}
+                      Cathy {format(start, 'h:mm a')} · {duration}
                       {block.isCurrent ? ' ago' : ''}
                     </p>
                   </div>
@@ -169,7 +169,7 @@ export function CatheterBlocksView() {
                 {totalOut > 0 && (
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5">
                     {block.catheterMl > 0 && (
-                      <span className="text-xs text-gray-400">🩺 Catheter {block.catheterMl}ml</span>
+                      <span className="text-xs text-gray-400">🩺 Cathy {block.catheterMl}ml</span>
                     )}
                     {block.extraCatheterMl > 0 && (
                       <span className="text-xs text-gray-400">🩺 +{block.extraCatheterMl}ml</span>

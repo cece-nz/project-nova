@@ -5,9 +5,10 @@ import { AlertTriangle, Clock } from 'lucide-react'
 interface CountdownCardProps {
   refreshKey?: number
   onLogOutput: () => void
+  onViewHistory?: () => void
 }
 
-export function CountdownCard({ refreshKey, onLogOutput }: CountdownCardProps) {
+export function CountdownCard({ refreshKey, onLogOutput, onViewHistory }: CountdownCardProps) {
   const { isOverdue, label, percentage, lastOutputAt, isLoading } = useCountdown(refreshKey)
 
   const circumference = 2 * Math.PI * 42 // radius 42
@@ -57,7 +58,7 @@ export function CountdownCard({ refreshKey, onLogOutput }: CountdownCardProps) {
         {/* Text */}
         <div className="flex-1 min-w-0">
           <p className="text-white/80 text-xs font-medium uppercase tracking-wider mb-1">
-            Last catheter emptied
+            Last Cathy
           </p>
           {isLoading ? (
             <p className="text-white font-semibold text-lg">Loading...</p>
@@ -72,12 +73,22 @@ export function CountdownCard({ refreshKey, onLogOutput }: CountdownCardProps) {
             </>
           )}
 
-          <button
-            onClick={onLogOutput}
-            className="mt-3 bg-white/20 hover:bg-white/30 active:bg-white/10 backdrop-blur-sm text-white text-sm font-semibold px-4 py-2 rounded-xl transition-all active:scale-95"
-          >
-            Log now →
-          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={onLogOutput}
+              className="bg-white/20 hover:bg-white/30 active:bg-white/10 backdrop-blur-sm text-white text-sm font-semibold px-4 py-2 rounded-xl transition-all active:scale-95"
+            >
+              Log now →
+            </button>
+            {onViewHistory && (
+              <button
+                onClick={onViewHistory}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white/80 text-sm px-3 py-2 rounded-xl transition-all active:scale-95"
+              >
+                History
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
