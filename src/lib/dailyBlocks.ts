@@ -81,65 +81,69 @@ export function buildDays(
 }
 
 // ============================================================
-// Cathy sub-blocks (used inside an expanded day)
+// Bladder-emptying sub-blocks (used inside an expanded day)
+//
+// Each cathy log CLOSES a window — the output drained at that
+// moment represents what accumulated since the previous emptying.
+// So the block "Bladder emptied at 2pm" contains the fluids, potty
+// and nappy entries that happened BEFORE that cathy (back to the
+// previous cathy or start of day).
 // ============================================================
 
-export interface CathyBlock {
-  cathy: OutputLog | null   // null = entries before the first cathy of the day
-  endedAt: string | null    // when the next cathy ends this window (ISO)
-  cathyMl: number           // cathy_ml of this block's anchor cathy
-  fluidInMl: number         // fluids logged after this cathy, before the next
-  pottyMl: number
-  nappyMl: number
+export interface BladderBlock {
+  closingCathy: OutputLog | null   // the cathy that closed this window (null = trailing, no emptying yet)
+  startedAt: string | null         // when this window opened (previous cathy time, or null = start of day)
+  cathyMl: number                  // ml drained at the closing cathy
+  fluidInMl: number                // intake within the window
+  pottyMl: number                  // potty output within the window
+  nappyMl: number                  // nappy output within the window (tare-adjusted)
   dryNappies: number
-  entries: LogEntry[]       // entries in this window, newest-first
+  entries: LogEntry[]              // entries in this window, newest-first
 }
 
-export function buildCathyBlocksForDay(day: DayBlock): CathyBlock[] {
-  // Work with chronological (oldest-first) entries for ranges
+export function buildBladderBlocksForDay(day: DayBlock): BladderBlock[] {
   const chrono = [...day.entries].sort(
     (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
   )
 
-  const cathyEntries = chrono.filter(
-    e => e.type === 'output' && ((e.data as OutputLog).catheter_ml ?? 0) > 0
-  )
-  const cathyLogs = cathyEntries.map(e => e.data as OutputLog)
+  const cathyLogs = chrono
+    .filter(e => e.type === 'output' && ((e.data as OutputLog).catheter_ml ?? 0) > 0)
+    .map(e => e.data as OutputLog)
 
-  // If no cathy that day, return a single block containing everything
+  // No cathy that day → single trailing block with everything
   if (cathyLogs.length === 0) {
     return [makeBlock(null, null, day.entries)]
   }
 
-  const blocks: CathyBlock[] = []
+  const blocks: BladderBlock[] = []
 
-  // Iterate newest cathy first
+  // Trailing block: entries AFTER the day's last cathy (window not yet closed)
+  const lastCathy = cathyLogs[cathyLogs.length - 1]
+  const trailing = chrono.filter(e => e.time > lastCathy.logged_at)
+  if (trailing.length > 0) {
+    blocks.push(makeBlock(null, lastCathy.logged_at, [...trailing].reverse()))
+  }
+
+  // Each cathy closes a window from the previous cathy (or day start) to itself
   for (let i = cathyLogs.length - 1; i >= 0; i--) {
     const cathy = cathyLogs[i]
-    const start = cathy.logged_at
-    const end = cathyLogs[i + 1]?.logged_at ?? null
+    const prevCathyTime = cathyLogs[i - 1]?.logged_at ?? null
+    const closeTime = cathy.logged_at
 
     const inWindow = chrono.filter(e => {
-      if (e.time < start) return false
-      if (e.type === 'output' && (e.data as OutputLog).id === cathy.id) return false
-      if (end && e.time >= end) return false
+      if (prevCathyTime && e.time <= prevCathyTime) return false   // exclude prev cathy + earlier
+      if (e.time > closeTime) return false                          // exclude later
+      if (e.type === 'output' && (e.data as OutputLog).id === cathy.id) return false  // exclude the closing cathy itself
       return true
     })
 
-    blocks.push(makeBlock(cathy, end, [...inWindow].reverse()))
-  }
-
-  // Entries before the first cathy of the day go last
-  const firstCathyTime = cathyLogs[0].logged_at
-  const preEntries = chrono.filter(e => e.time < firstCathyTime)
-  if (preEntries.length > 0) {
-    blocks.push(makeBlock(null, firstCathyTime, [...preEntries].reverse()))
+    blocks.push(makeBlock(cathy, prevCathyTime, [...inWindow].reverse()))
   }
 
   return blocks
 }
 
-function makeBlock(cathy: OutputLog | null, endedAt: string | null, entries: LogEntry[]): CathyBlock {
+function makeBlock(closingCathy: OutputLog | null, startedAt: string | null, entries: LogEntry[]): BladderBlock {
   let fluidInMl = 0
   let pottyMl = 0
   let nappyMl = 0
@@ -155,9 +159,9 @@ function makeBlock(cathy: OutputLog | null, endedAt: string | null, entries: Log
     }
   }
   return {
-    cathy,
-    endedAt,
-    cathyMl: cathy?.catheter_ml ?? 0,
+    closingCathy,
+    startedAt,
+    cathyMl: closingCathy?.catheter_ml ?? 0,
     fluidInMl, pottyMl, nappyMl, dryNappies,
     entries,
   }

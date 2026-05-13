@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildDays, buildCathyBlocksForDay } from '../dailyBlocks'
+import { buildDays, buildBladderBlocksForDay } from '../dailyBlocks'
 import type { FluidLog, OutputLog, MedicationLog, GeneralNote } from '../../types'
 
 function fluid(id: string, given_at: string, amount_ml: number, fluid_type: 'water' | 'milk' = 'water'): FluidLog {
@@ -92,47 +92,72 @@ describe('buildDays', () => {
   })
 })
 
-describe('buildCathyBlocksForDay', () => {
-  it('returns a single block when no cathy that day', () => {
+describe('buildBladderBlocksForDay', () => {
+  it('returns a single trailing block when no cathy that day', () => {
     const days = buildDays([fluid('f1', '2026-05-13T10:00:00Z', 200)], [], [], [])
-    const blocks = buildCathyBlocksForDay(days[0])
+    const blocks = buildBladderBlocksForDay(days[0])
     expect(blocks).toHaveLength(1)
-    expect(blocks[0].cathy).toBeNull()
+    expect(blocks[0].closingCathy).toBeNull()
     expect(blocks[0].fluidInMl).toBe(200)
   })
 
-  it('groups entries between consecutive cathy events', () => {
+  it('each cathy closes a window of prior entries', () => {
+    // c1 closes window [start-of-day, 10:00] → contains f1 (09:00)
+    // c2 closes window (10:00, 14:00]         → contains f2 (11:00)
+    // trailing window  (14:00, end-of-day]    → contains f3 (15:00)
     const days = buildDays([
-      fluid('f1', '2026-05-13T09:00:00Z', 100),  // before cathy at 10
-      fluid('f2', '2026-05-13T11:00:00Z', 200),  // after cathy at 10, before cathy at 14
-      fluid('f3', '2026-05-13T15:00:00Z', 150),  // after cathy at 14
+      fluid('f1', '2026-05-13T09:00:00Z', 100),
+      fluid('f2', '2026-05-13T11:00:00Z', 200),
+      fluid('f3', '2026-05-13T15:00:00Z', 150),
     ], [
       output('c1', '2026-05-13T10:00:00Z', { catheter_ml: 200 }),
       output('c2', '2026-05-13T14:00:00Z', { catheter_ml: 250 }),
     ], [], [])
 
-    const blocks = buildCathyBlocksForDay(days[0])
+    const blocks = buildBladderBlocksForDay(days[0])
 
-    // Newest cathy first, then older, then 'before first cathy'
+    // Newest first: trailing (no closing cathy), then c2, then c1
     expect(blocks).toHaveLength(3)
-    expect(blocks[0].cathy?.id).toBe('c2')
+
+    expect(blocks[0].closingCathy).toBeNull()         // trailing
     expect(blocks[0].fluidInMl).toBe(150)
-    expect(blocks[1].cathy?.id).toBe('c1')
+    expect(blocks[0].startedAt).toBe('2026-05-13T14:00:00Z')  // since c2
+
+    expect(blocks[1].closingCathy?.id).toBe('c2')
     expect(blocks[1].fluidInMl).toBe(200)
-    expect(blocks[2].cathy).toBeNull()
+    expect(blocks[1].startedAt).toBe('2026-05-13T10:00:00Z')  // since c1
+    expect(blocks[1].cathyMl).toBe(250)
+
+    expect(blocks[2].closingCathy?.id).toBe('c1')
     expect(blocks[2].fluidInMl).toBe(100)
+    expect(blocks[2].startedAt).toBeNull()                     // since start of day
+    expect(blocks[2].cathyMl).toBe(200)
   })
 
-  it('excludes the cathy log itself from its block entries', () => {
+  it('excludes the closing cathy log itself from its window entries', () => {
     const days = buildDays([], [
+      output('p1', '2026-05-13T09:00:00Z', { potty_ml: 50 }),
       output('c1', '2026-05-13T10:00:00Z', { catheter_ml: 200 }),
-      output('p1', '2026-05-13T11:00:00Z', { potty_ml: 50 }),
     ], [], [])
 
-    const blocks = buildCathyBlocksForDay(days[0])
+    const blocks = buildBladderBlocksForDay(days[0])
+    // No trailing entries → only the c1-closing block
     expect(blocks).toHaveLength(1)
+    expect(blocks[0].closingCathy?.id).toBe('c1')
     expect(blocks[0].entries.find(e => e.data.id === 'c1')).toBeUndefined()
     expect(blocks[0].entries.find(e => e.data.id === 'p1')).toBeDefined()
     expect(blocks[0].pottyMl).toBe(50)
+  })
+
+  it('omits trailing block when the day ends on a cathy', () => {
+    const days = buildDays([
+      fluid('f1', '2026-05-13T09:00:00Z', 100),
+    ], [
+      output('c1', '2026-05-13T10:00:00Z', { catheter_ml: 200 }),
+    ], [], [])
+
+    const blocks = buildBladderBlocksForDay(days[0])
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].closingCathy?.id).toBe('c1')
   })
 })

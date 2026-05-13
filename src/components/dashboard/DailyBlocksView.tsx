@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getAllLogsData } from '../../lib/db'
 import { NAPPY_TARE_G } from '../../utils'
-import { buildDays, buildCathyBlocksForDay, type DayBlock, type CathyBlock } from '../../lib/dailyBlocks'
+import { buildDays, buildBladderBlocksForDay, type DayBlock, type BladderBlock } from '../../lib/dailyBlocks'
 import { format } from 'date-fns'
 import { Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { Timeline } from './Timeline'
@@ -44,7 +44,7 @@ export function DailyBlocksView() {
       <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
         <Info size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
         <p className="text-xs text-blue-600">
-          Daily totals. Tap a day to see entries grouped by each Cathy event.
+          Daily totals. Tap a day to see what accumulated between each bladder emptying.
           Nappy tare ({NAPPY_TARE_G}g) subtracted from gross weight.
         </p>
       </div>
@@ -131,48 +131,47 @@ export function DailyBlocksView() {
 }
 
 // ============================================================
-// Expanded view: entries grouped by Cathy event
+// Expanded view: entries grouped between bladder emptyings
 // ============================================================
 
 function ExpandedDay({ day }: { day: DayBlock }) {
-  const cathyBlocks = buildCathyBlocksForDay(day)
-
+  const blocks = buildBladderBlocksForDay(day)
   return (
     <div className="space-y-4">
-      {cathyBlocks.map((block, i) => (
-        <CathyBlockSection key={i} block={block} />
+      {blocks.map((block, i) => (
+        <BladderBlockSection key={i} block={block} />
       ))}
     </div>
   )
 }
 
-function CathyBlockSection({ block }: { block: CathyBlock }) {
+function BladderBlockSection({ block }: { block: BladderBlock }) {
   const totalOut = block.cathyMl + block.pottyMl + block.nappyMl
 
   return (
     <div className="bg-gray-50 rounded-xl p-3">
       {/* Sub-block header */}
       <div className="flex items-baseline justify-between gap-2 mb-2">
-        {block.cathy ? (
+        {block.closingCathy ? (
           <p className="text-sm font-semibold text-gray-700">
-            🩺 Cathy {block.cathyMl}ml
+            🩺 Bladder emptied · {block.cathyMl}ml
             <span className="text-xs font-normal text-gray-400 ml-1.5">
-              at {format(new Date(block.cathy.logged_at), 'h:mm a')}
+              at {format(new Date(block.closingCathy.logged_at), 'h:mm a')}
             </span>
           </p>
         ) : (
           <p className="text-sm font-semibold text-gray-500">
-            Before first Cathy
+            Since last emptying
           </p>
         )}
-        {block.endedAt && block.cathy && (
-          <span className="text-xs text-gray-400">
-            → next at {format(new Date(block.endedAt), 'h:mm a')}
-          </span>
-        )}
+        <span className="text-xs text-gray-400 whitespace-nowrap">
+          {block.startedAt
+            ? `since ${format(new Date(block.startedAt), 'h:mm a')}`
+            : block.closingCathy ? 'start of day' : ''}
+        </span>
       </div>
 
-      {/* Block totals (only if there was activity in this window) */}
+      {/* Block totals */}
       {(block.fluidInMl > 0 || totalOut - block.cathyMl > 0 || block.dryNappies > 0) && (
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-3 px-1">
           {block.fluidInMl > 0 && (
@@ -190,9 +189,9 @@ function CathyBlockSection({ block }: { block: CathyBlock }) {
         </div>
       )}
 
-      {/* Entries (fluids/outputs/meds/notes in this window) */}
+      {/* Entries in this window */}
       {block.entries.length === 0 ? (
-        <p className="text-xs text-gray-400 italic px-1">No other entries in this window.</p>
+        <p className="text-xs text-gray-400 italic px-1">No entries in this window.</p>
       ) : (
         <Timeline entries={block.entries} isLoading={false} onRefresh={() => {}} canDelete={false} />
       )}
