@@ -309,6 +309,14 @@ export async function updateFluidLog(
   return data
 }
 
+export async function updateOutputLogNote(id: string, notes: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('output_logs')
+    .update({ notes })
+    .eq('id', id)
+  if (error) throw error
+}
+
 export async function updateOutputLog(
   id: string,
   updates: {
