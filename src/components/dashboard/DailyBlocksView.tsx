@@ -139,54 +139,96 @@ function ExpandedDay({ day }: { day: DayBlock }) {
   return (
     <div className="space-y-4">
       {blocks.map((block, i) => (
-        <BladderBlockSection key={i} block={block} />
+        <BladderBlockSection key={i} block={block} day={day} />
       ))}
     </div>
   )
 }
 
-function BladderBlockSection({ block }: { block: BladderBlock }) {
+function formatDuration(ms: number): string {
+  if (ms < 0) ms = 0
+  const totalMins = Math.round(ms / 60000)
+  const h = Math.floor(totalMins / 60)
+  const m = totalMins % 60
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}m`
+}
+
+function BladderBlockSection({ block, day }: { block: BladderBlock; day: DayBlock }) {
   const totalOut = block.cathyMl + block.pottyMl + block.nappyMl
+
+  // Window boundaries
+  const startMs = block.startedAt
+    ? new Date(block.startedAt).getTime()
+    : new Date(day.date + 'T00:00:00').getTime()
+  const endMs = block.closingCathy
+    ? new Date(block.closingCathy.logged_at).getTime()
+    : Date.now()
+  const durationMs = endMs - startMs
+  const durationLabel = formatDuration(durationMs)
+  const hours = durationMs / 3_600_000
+  const avg4hr = hours > 0 ? Math.round((totalOut / hours) * 4) : null
 
   return (
     <div className="bg-gray-50 rounded-xl p-3">
-      {/* Sub-block header */}
-      <div className="flex items-baseline justify-between gap-2 mb-2">
+      {/* Header */}
+      <div className="mb-3">
         {block.closingCathy ? (
-          <p className="text-sm font-semibold text-gray-700">
-            🩺 Bladder emptied · {block.cathyMl}ml
-            <span className="text-xs font-normal text-gray-400 ml-1.5">
-              at {format(new Date(block.closingCathy.logged_at), 'h:mm a')}
-            </span>
-          </p>
+          <>
+            <p className="text-base font-bold text-gray-800">
+              🩺 Bladder emptied — {format(new Date(block.closingCathy.logged_at), 'h:mm a')}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {durationLabel} since {block.startedAt ? 'last empty' : 'start of day'}
+            </p>
+          </>
         ) : (
-          <p className="text-sm font-semibold text-gray-500">
-            Since last emptying
-          </p>
+          <>
+            <p className="text-base font-bold text-gray-500">
+              Since last emptying
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {block.startedAt ? `${durationLabel} and counting` : 'No emptying logged'}
+            </p>
+          </>
         )}
-        <span className="text-xs text-gray-400 whitespace-nowrap">
-          {block.startedAt
-            ? `since ${format(new Date(block.startedAt), 'h:mm a')}`
-            : block.closingCathy ? 'start of day' : ''}
-        </span>
       </div>
 
-      {/* Block totals */}
-      {(block.fluidInMl > 0 || totalOut - block.cathyMl > 0 || block.dryNappies > 0) && (
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-3 px-1">
-          {block.fluidInMl > 0 && (
-            <span className="text-xs text-blue-500 font-medium">In: {block.fluidInMl}ml</span>
+      {/* Total + 4hr equivalent */}
+      <div className="flex items-baseline justify-between mb-1.5">
+        <p className="text-sm">
+          <span className="text-gray-500">Total out: </span>
+          <span className="text-base font-bold text-emerald-700">
+            {totalOut}<span className="text-xs font-normal">ml</span>
+          </span>
+        </p>
+        {avg4hr !== null && totalOut > 0 && (
+          <p className="text-xs text-gray-500">~{avg4hr}ml / 4hr</p>
+        )}
+      </div>
+
+      {/* Output breakdown */}
+      {(totalOut > 0 || block.dryNappies > 0) && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-2">
+          {block.cathyMl > 0 && (
+            <span className="text-xs text-gray-500">🩺 Cathy {block.cathyMl}ml</span>
           )}
           {block.pottyMl > 0 && (
-            <span className="text-xs text-gray-500">🪣 {block.pottyMl}ml</span>
+            <span className="text-xs text-gray-500">🪣 Potty {block.pottyMl}ml</span>
           )}
           {block.nappyMl > 0 && (
-            <span className="text-xs text-gray-500">🩲 ~{block.nappyMl}ml</span>
+            <span className="text-xs text-gray-500">🩲 Nappy ~{block.nappyMl}ml</span>
           )}
           {block.dryNappies > 0 && (
             <span className="text-xs text-gray-500">🩲 {block.dryNappies} dry</span>
           )}
         </div>
+      )}
+
+      {/* Fluid in */}
+      {block.fluidInMl > 0 && (
+        <p className="text-xs text-blue-500 font-medium mb-2">In: {block.fluidInMl}ml</p>
       )}
 
       {/* Entries in this window */}
