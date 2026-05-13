@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { CountdownCard } from './CountdownCard'
 import { LastMedCard } from './LastMedCard'
 import { AppointmentsWidget } from './AppointmentsWidget'
-import { StatsBar } from './StatsBar'
+import { TodayOutputCard } from './TodayOutputCard'
+import { RecentDaysWidget } from './RecentDaysWidget'
 import { Timeline } from './Timeline'
 import { ActionBar, type LogType } from '../layout/ActionBar'
 import { Modal } from '../ui/Modal'
@@ -15,10 +16,10 @@ import { AdminPanel } from './AdminPanel'
 import { AppointmentList } from '../appointments/AppointmentList'
 import { useAuth } from '../../hooks/useAuth'
 import { can } from '../../lib/permissions'
-import { getTodayEntries, getDailyStats } from '../../lib/db'
+import { getTodayEntries } from '../../lib/db'
 import { format } from 'date-fns'
 import { LogOut, LayoutList, BarChart2, Settings, CalendarDays } from 'lucide-react'
-import type { LogEntry, DailyStats, MedicationLog, FluidLog, OutputLog, GeneralNote } from '../../types'
+import type { LogEntry, MedicationLog, FluidLog, OutputLog, GeneralNote } from '../../types'
 
 type Tab = 'today' | 'summary' | 'appointments' | 'admin'
 
@@ -48,17 +49,13 @@ export function Dashboard() {
   const [openModal, setOpenModal] = useState<LogType | null>(null)
   const [editEntry, setEditEntry] = useState<LogEntry | null>(null)
   const [entries, setEntries] = useState<LogEntry[]>([])
-  const [stats, setStats] = useState<DailyStats | null>(null)
   const [isLoadingEntries, setIsLoadingEntries] = useState(true)
-  const [isLoadingStats, setIsLoadingStats] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const refresh = useCallback(() => {
     setRefreshKey(k => k + 1)
     setIsLoadingEntries(true)
-    setIsLoadingStats(true)
     getTodayEntries().then(setEntries).finally(() => setIsLoadingEntries(false))
-    getDailyStats().then(setStats).finally(() => setIsLoadingStats(false))
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
@@ -143,16 +140,17 @@ export function Dashboard() {
               refreshKey={refreshKey}
               onViewHistory={() => goToSummary({ subTab: 'inputs', typeFilter: 'medication' })}
             />
-            <StatsBar
-              stats={stats}
-              isLoading={isLoadingStats}
-              onOutputClick={() => goToSummary({ subTab: 'inputs', typeFilter: 'output' })}
-              onFluidClick={() => goToSummary({ subTab: 'inputs', typeFilter: 'fluid' })}
-              onMedClick={() => goToSummary({ subTab: 'inputs', typeFilter: 'medication' })}
+            <TodayOutputCard
+              refreshKey={refreshKey}
+              onClick={() => goToSummary({ subTab: 'blocks' })}
             />
             {can.viewAppointments(carer?.role) && (
               <AppointmentsWidget onClick={() => setActiveTab('appointments')} />
             )}
+            <RecentDaysWidget
+              refreshKey={refreshKey}
+              onClickDay={() => goToSummary({ subTab: 'blocks' })}
+            />
             <div>
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Today's log</h2>
               <Timeline

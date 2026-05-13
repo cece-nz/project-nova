@@ -1,91 +1,10 @@
 import { useState, useEffect } from 'react'
 import { getAllLogsData } from '../../lib/db'
 import { NAPPY_TARE_G } from '../../utils'
+import { buildDays, buildCathyBlocksForDay, type DayBlock, type CathyBlock } from '../../lib/dailyBlocks'
 import { format } from 'date-fns'
 import { Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { Timeline } from './Timeline'
-import type { FluidLog, OutputLog, MedicationLog, GeneralNote, LogEntry } from '../../types'
-
-interface DayBlock {
-  date: string         // 'yyyy-MM-dd'
-  label: string        // 'Mon 13 May 2026'
-  cathyMl: number
-  pottyMl: number
-  nappyMl: number
-  cathyCount: number
-  dryNappies: number
-  fluidInMl: number
-  fluidEntries: number
-  medsGiven: number
-  entries: LogEntry[]
-}
-
-function dayKey(iso: string): string {
-  return iso.slice(0, 10) // 'yyyy-MM-dd'
-}
-
-function buildDays(
-  fluidLogs: FluidLog[],
-  outputLogs: OutputLog[],
-  medLogs: MedicationLog[],
-  notes: GeneralNote[],
-): DayBlock[] {
-  const map = new Map<string, DayBlock>()
-
-  const getDay = (key: string): DayBlock => {
-    let day = map.get(key)
-    if (!day) {
-      day = {
-        date: key,
-        label: format(new Date(key + 'T12:00:00'), 'EEE d MMM yyyy'),
-        cathyMl: 0, pottyMl: 0, nappyMl: 0,
-        cathyCount: 0, dryNappies: 0,
-        fluidInMl: 0, fluidEntries: 0, medsGiven: 0,
-        entries: [],
-      }
-      map.set(key, day)
-    }
-    return day
-  }
-
-  for (const f of fluidLogs) {
-    const day = getDay(dayKey(f.given_at))
-    day.fluidInMl += f.amount_ml ?? 0
-    day.fluidEntries += 1
-    day.entries.push({ type: 'fluid', data: f, time: f.given_at })
-  }
-  for (const o of outputLogs) {
-    const day = getDay(dayKey(o.logged_at))
-    if ((o.catheter_ml ?? 0) > 0) {
-      day.cathyMl += o.catheter_ml ?? 0
-      day.cathyCount += 1
-    }
-    day.pottyMl += o.potty_ml ?? 0
-    if (o.nappy_was_dry) {
-      day.dryNappies += 1
-    } else if (o.nappy_weight_g != null) {
-      day.nappyMl += Math.max(0, o.nappy_weight_g - NAPPY_TARE_G)
-    }
-    day.entries.push({ type: 'output', data: o, time: o.logged_at })
-  }
-  for (const m of medLogs) {
-    const day = getDay(dayKey(m.given_at))
-    day.medsGiven += 1
-    day.entries.push({ type: 'medication', data: m, time: m.given_at })
-  }
-  for (const n of notes) {
-    const day = getDay(dayKey(n.noted_at))
-    day.entries.push({ type: 'note', data: n, time: n.noted_at })
-  }
-
-  // Sort entries newest-first within each day
-  for (const day of map.values()) {
-    day.entries.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-  }
-
-  // Sort days newest-first
-  return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date))
-}
 
 export function DailyBlocksView() {
   const [days, setDays] = useState<DayBlock[]>([])
@@ -125,7 +44,8 @@ export function DailyBlocksView() {
       <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
         <Info size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
         <p className="text-xs text-blue-600">
-          Daily totals. Nappy tare ({NAPPY_TARE_G}g) subtracted from gross weight. Tap a day to see all entries.
+          Daily totals. Tap a day to see entries grouped by each Cathy event.
+          Nappy tare ({NAPPY_TARE_G}g) subtracted from gross weight.
         </p>
       </div>
 
@@ -159,7 +79,6 @@ export function DailyBlocksView() {
                   </span>
                 </div>
 
-                {/* Output first, fluid second */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-emerald-50 rounded-xl p-3">
                     <p className="text-xs text-emerald-500 font-medium mb-1">Total out</p>
@@ -175,7 +94,6 @@ export function DailyBlocksView() {
                   </div>
                 </div>
 
-                {/* Breakdown chips */}
                 {(totalOut > 0 || day.dryNappies > 0 || day.fluidEntries > 0) && (
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5">
                     {day.cathyMl > 0 && (
@@ -199,24 +117,85 @@ export function DailyBlocksView() {
                 )}
               </button>
 
-              {/* Expanded entries */}
               {isExpanded && (
                 <div className="px-4 pb-4 border-t border-gray-50 pt-3">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                    All entries
-                  </p>
-                  <Timeline
-                    entries={day.entries}
-                    isLoading={false}
-                    onRefresh={() => {}}
-                    canDelete={false}
-                  />
+                  <ExpandedDay day={day} />
                 </div>
               )}
             </div>
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Expanded view: entries grouped by Cathy event
+// ============================================================
+
+function ExpandedDay({ day }: { day: DayBlock }) {
+  const cathyBlocks = buildCathyBlocksForDay(day)
+
+  return (
+    <div className="space-y-4">
+      {cathyBlocks.map((block, i) => (
+        <CathyBlockSection key={i} block={block} />
+      ))}
+    </div>
+  )
+}
+
+function CathyBlockSection({ block }: { block: CathyBlock }) {
+  const totalOut = block.cathyMl + block.pottyMl + block.nappyMl
+
+  return (
+    <div className="bg-gray-50 rounded-xl p-3">
+      {/* Sub-block header */}
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        {block.cathy ? (
+          <p className="text-sm font-semibold text-gray-700">
+            🩺 Cathy {block.cathyMl}ml
+            <span className="text-xs font-normal text-gray-400 ml-1.5">
+              at {format(new Date(block.cathy.logged_at), 'h:mm a')}
+            </span>
+          </p>
+        ) : (
+          <p className="text-sm font-semibold text-gray-500">
+            Before first Cathy
+          </p>
+        )}
+        {block.endedAt && block.cathy && (
+          <span className="text-xs text-gray-400">
+            → next at {format(new Date(block.endedAt), 'h:mm a')}
+          </span>
+        )}
+      </div>
+
+      {/* Block totals (only if there was activity in this window) */}
+      {(block.fluidInMl > 0 || totalOut - block.cathyMl > 0 || block.dryNappies > 0) && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mb-3 px-1">
+          {block.fluidInMl > 0 && (
+            <span className="text-xs text-blue-500 font-medium">In: {block.fluidInMl}ml</span>
+          )}
+          {block.pottyMl > 0 && (
+            <span className="text-xs text-gray-500">🪣 {block.pottyMl}ml</span>
+          )}
+          {block.nappyMl > 0 && (
+            <span className="text-xs text-gray-500">🩲 ~{block.nappyMl}ml</span>
+          )}
+          {block.dryNappies > 0 && (
+            <span className="text-xs text-gray-500">🩲 {block.dryNappies} dry</span>
+          )}
+        </div>
+      )}
+
+      {/* Entries (fluids/outputs/meds/notes in this window) */}
+      {block.entries.length === 0 ? (
+        <p className="text-xs text-gray-400 italic px-1">No other entries in this window.</p>
+      ) : (
+        <Timeline entries={block.entries} isLoading={false} onRefresh={() => {}} canDelete={false} />
+      )}
     </div>
   )
 }
