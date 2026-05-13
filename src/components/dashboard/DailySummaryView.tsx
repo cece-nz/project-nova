@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getDailySummary, saveDailySummary } from '../../lib/db'
-import { CatheterBlocksView } from './CatheterBlocksView'
+import { DailyBlocksView } from './DailyBlocksView'
 import { LogHistory } from './LogHistory'
 import { TrendsView } from './TrendsView'
 import { useAuth } from '../../hooks/useAuth'
@@ -52,7 +52,7 @@ export function DailySummaryView({ onEdit, initialSubTab, initialTypeFilter }: D
       {/* Sub-tab pills */}
       <div className="flex gap-2 flex-wrap">
         {([
-          { id: 'blocks', label: '🩺 Blocks' },
+          { id: 'blocks', label: '📅 Daily' },
           { id: 'inputs', label: '📋 All inputs' },
           { id: 'trends', label: '📈 Trends' },
         ] as { id: SubTab; label: string }[]).map(t => (
@@ -72,7 +72,7 @@ export function DailySummaryView({ onEdit, initialSubTab, initialTypeFilter }: D
 
       {subTab === 'blocks' && (
         <div className="space-y-6">
-          <CatheterBlocksView />
+          <DailyBlocksView />
 
           {/* Admin daily notes */}
           <div className="space-y-3">

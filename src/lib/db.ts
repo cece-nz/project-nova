@@ -362,26 +362,23 @@ export async function getLastCatheterOutput(): Promise<OutputLog | null> {
   return data as OutputLog | null
 }
 
-export async function getCatheterBlockData(): Promise<{
-  catheterLogs: OutputLog[]
-  allFluidLogs: FluidLog[]
-  allOutputLogs: OutputLog[]
-  allMedLogs: MedicationLog[]
-  allNotes: GeneralNote[]
+export async function getAllLogsData(): Promise<{
+  fluidLogs: FluidLog[]
+  outputLogs: OutputLog[]
+  medLogs: MedicationLog[]
+  notes: GeneralNote[]
 }> {
-  const [catheter, fluids, outputs, meds, notes] = await Promise.all([
-    supabase.from('output_logs').select('*, carer:carer_id(id, name, color)').gt('catheter_ml', 0).order('logged_at'),
+  const [fluids, outputs, meds, notes] = await Promise.all([
     supabase.from('fluid_logs').select('*, carer:carer_id(id, name, color)').order('given_at'),
     supabase.from('output_logs').select('*, carer:carer_id(id, name, color)').order('logged_at'),
     supabase.from('medication_logs').select('*, carer:carer_id(id, name, color)').order('given_at'),
     supabase.from('general_notes').select('*, carer:carer_id(id, name, color)').order('noted_at'),
   ])
   return {
-    catheterLogs: (catheter.data || []) as OutputLog[],
-    allFluidLogs: (fluids.data || []) as FluidLog[],
-    allOutputLogs: (outputs.data || []) as OutputLog[],
-    allMedLogs: (meds.data || []) as MedicationLog[],
-    allNotes: (notes.data || []) as GeneralNote[],
+    fluidLogs: (fluids.data || []) as FluidLog[],
+    outputLogs: (outputs.data || []) as OutputLog[],
+    medLogs: (meds.data || []) as MedicationLog[],
+    notes: (notes.data || []) as GeneralNote[],
   }
 }
 
