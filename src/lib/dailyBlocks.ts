@@ -124,7 +124,9 @@ export function buildBladderBlocksForDay(day: DayBlock): BladderBlock[] {
     blocks.push(makeBlock(null, lastCathy.logged_at, [...trailing].reverse()))
   }
 
-  // Each cathy closes a window from the previous cathy (or day start) to itself
+  // Each cathy closes a window from the previous cathy (or day start) to itself.
+  // The closing cathy entry IS included in the window so any potty/nappy
+  // recorded on the same row gets counted.
   for (let i = cathyLogs.length - 1; i >= 0; i--) {
     const cathy = cathyLogs[i]
     const prevCathyTime = cathyLogs[i - 1]?.logged_at ?? null
@@ -133,7 +135,6 @@ export function buildBladderBlocksForDay(day: DayBlock): BladderBlock[] {
     const inWindow = chrono.filter(e => {
       if (prevCathyTime && e.time <= prevCathyTime) return false   // exclude prev cathy + earlier
       if (e.time > closeTime) return false                          // exclude later
-      if (e.type === 'output' && (e.data as OutputLog).id === cathy.id) return false  // exclude the closing cathy itself
       return true
     })
 

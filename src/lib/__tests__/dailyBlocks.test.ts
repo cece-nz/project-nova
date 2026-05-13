@@ -134,19 +134,25 @@ describe('buildBladderBlocksForDay', () => {
     expect(blocks[2].cathyMl).toBe(200)
   })
 
-  it('excludes the closing cathy log itself from its window entries', () => {
+  it('includes the closing cathy entry in the window so combined-row data is counted', () => {
+    // A single output_log row holds catheter_ml AND potty_ml AND a nappy weight
     const days = buildDays([], [
       output('p1', '2026-05-13T09:00:00Z', { potty_ml: 50 }),
-      output('c1', '2026-05-13T10:00:00Z', { catheter_ml: 200 }),
+      output('c1', '2026-05-13T10:00:00Z', { catheter_ml: 200, potty_ml: 25, nappy_weight_g: 130 }),
     ], [], [])
 
     const blocks = buildBladderBlocksForDay(days[0])
-    // No trailing entries → only the c1-closing block
     expect(blocks).toHaveLength(1)
     expect(blocks[0].closingCathy?.id).toBe('c1')
-    expect(blocks[0].entries.find(e => e.data.id === 'c1')).toBeUndefined()
+
+    // The closing cathy entry IS in the window's entry list
+    expect(blocks[0].entries.find(e => e.data.id === 'c1')).toBeDefined()
     expect(blocks[0].entries.find(e => e.data.id === 'p1')).toBeDefined()
-    expect(blocks[0].pottyMl).toBe(50)
+
+    // Totals include components from BOTH rows (p1 potty 50 + c1 potty 25)
+    expect(blocks[0].cathyMl).toBe(200)
+    expect(blocks[0].pottyMl).toBe(75)
+    expect(blocks[0].nappyMl).toBe(80) // 130 - 50 tare
   })
 
   it('omits trailing block when the day ends on a cathy', () => {
