@@ -145,14 +145,16 @@ function ExpandedDay({ day }: { day: DayBlock }) {
   )
 }
 
-function formatDuration(ms: number): string {
+function hourLabel(date: Date): string {
+  const h = date.getHours()
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  const ampm = h < 12 ? 'am' : 'pm'
+  return `${h12}${ampm}`
+}
+
+function decimalHours(ms: number): string {
   if (ms < 0) ms = 0
-  const totalMins = Math.round(ms / 60000)
-  const h = Math.floor(totalMins / 60)
-  const m = totalMins % 60
-  if (h === 0) return `${m}m`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
+  return (ms / 3_600_000).toFixed(1)
 }
 
 function BladderBlockSection({ block, day }: { block: BladderBlock; day: DayBlock }) {
@@ -166,9 +168,12 @@ function BladderBlockSection({ block, day }: { block: BladderBlock; day: DayBloc
     ? new Date(block.closingCathy.logged_at).getTime()
     : Date.now()
   const durationMs = endMs - startMs
-  const durationLabel = formatDuration(durationMs)
   const hours = durationMs / 3_600_000
   const avg4hr = hours > 0 ? Math.round((totalOut / hours) * 4) : null
+
+  const startLabel = hourLabel(new Date(startMs))
+  const endLabel = block.closingCathy ? hourLabel(new Date(endMs)) : 'now'
+  const rangeLabel = `${startLabel} - ${endLabel} (${decimalHours(durationMs)} hours)`
 
   return (
     <div className="bg-gray-50 rounded-xl p-3">
@@ -179,9 +184,7 @@ function BladderBlockSection({ block, day }: { block: BladderBlock; day: DayBloc
             <p className="text-base font-bold text-gray-800">
               🩺 Bladder emptied — {format(new Date(block.closingCathy.logged_at), 'h:mm a')}
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {durationLabel} since {block.startedAt ? 'last empty' : 'start of day'}
-            </p>
+            <p className="text-xs text-gray-400 mt-0.5">{rangeLabel}</p>
           </>
         ) : (
           <>
@@ -189,7 +192,7 @@ function BladderBlockSection({ block, day }: { block: BladderBlock; day: DayBloc
               Since last emptying
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
-              {block.startedAt ? `${durationLabel} and counting` : 'No emptying logged'}
+              {block.startedAt ? rangeLabel : 'No emptying logged'}
             </p>
           </>
         )}
